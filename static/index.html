@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BusFactor Zero — Autonomous Company Brain</title>
+  <meta name="description" content="Autonomous GraphRAG agent for detecting engineering bus-factor bottlenecks, simulating blast radius, and generating AI-powered knowledge handoff packets — powered by FalkorDB." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Vis.js network -->
+  <script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+  <link href="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.css" rel="stylesheet" />
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+          colors: {
+            brand: { 50:'#eef9f4', 100:'#d6f1e4', 200:'#b0e3cc', 300:'#7dcfac', 400:'#4cb488', 500:'#2d9b6e', 600:'#217c58', 700:'#1c6347', 800:'#194f3a', 900:'#164131' },
+            surface: { 900:'#080d13', 800:'#0d1520', 700:'#121e2e', 600:'#182540', 500:'#1e2f50' },
+            accent: { cyan:'#22d3ee', violet:'#a78bfa', amber:'#f59e0b', rose:'#f43f5e', emerald:'#10b981' },
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'fade-in': 'fadeIn 0.4s ease-out',
+            'slide-up': 'slideUp 0.4s ease-out',
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #080d13; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0d1520; }
+    ::-webkit-scrollbar-thumb { background: #2d9b6e; border-radius: 3px; }
+
+    /* Glass card */
+    .glass {
+      background: rgba(13, 21, 32, 0.85);
+      border: 1px solid rgba(45, 155, 110, 0.18);
+      backdrop-filter: blur(12px);
+    }
+
+    /* Glow effects */
+    .glow-green { box-shadow: 0 0 20px rgba(45, 155, 110, 0.25), 0 0 60px rgba(45, 155, 110, 0.08); }
+    .glow-cyan  { box-shadow: 0 0 20px rgba(34, 211, 238, 0.25); }
+    .glow-rose  { box-shadow: 0 0 20px rgba(244, 63, 94, 0.25); }
+
+    /* Graph container */
+    #graph-canvas {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+
+    /* Cypher inspector */
+    .cypher-block {
+      background: #0a0f1a;
+      border-left: 3px solid #2d9b6e;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #a5f3d0;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    /* Keyword highlighting */
+    .kw-match { color: #a78bfa; }
+    .kw-return { color: #22d3ee; }
+    .kw-where  { color: #f59e0b; }
+    .kw-create { color: #f43f5e; }
+    .kw-merge  { color: #fb923c; }
+    .kw-with   { color: #34d399; }
+
+    /* Status badge */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+    .badge-critical { background: rgba(244,63,94,0.15); color: #f43f5e; border: 1px solid rgba(244,63,94,0.3); }
+    .badge-high     { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+    .badge-medium   { background: rgba(34,211,238,0.12); color: #22d3ee; border: 1px solid rgba(34,211,238,0.25); }
+    .badge-active   { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+
+    /* Score ring */
+    .score-ring {
+      width: 72px; height: 72px; border-radius: 50%;
+      border: 3px solid;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 800;
+    }
+
+    /* Animated gradient heading */
+    .gradient-text {
+      background: linear-gradient(135deg, #2d9b6e 0%, #22d3ee 50%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Tab active */
+    .tab-btn.active {
+      background: rgba(45, 155, 110, 0.2);
+      border-color: #2d9b6e;
+      color: #4cb488;
+    }
+
+    /* Node legend */
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+    /* Loader */
+    .loader {
+      width: 20px; height: 20px;
+      border: 2px solid rgba(45,155,110,0.3);
+      border-top-color: #2d9b6e;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Packet markdown */
+    .packet-content h2, .packet-content h3 { color: #a5f3d0; font-weight: 700; margin: 12px 0 6px; }
+    .packet-content p  { color: #94a3b8; line-height: 1.7; margin: 6px 0; }
+    .packet-content ul { list-style: disc; padding-left: 20px; color: #94a3b8; }
+    .packet-content li { margin: 4px 0; }
+    .packet-content code { background: rgba(45,155,110,0.15); color: #4cb488; padding: 1px 6px; border-radius: 4px; font-family: monospace; }
+    .packet-content strong { color: #e2e8f0; }
+    .packet-content blockquote { border-left: 3px solid #2d9b6e; padding-left: 12px; color: #64748b; font-style: italic; }
+
+    /* Scrollable sections */
+    .scroll-panel { max-height: 420px; overflow-y: auto; }
+
+    /* Pulse dot */
+    .pulse-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #10b981;
+      animation: pulseDot 2s ease-in-out infinite;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.4); }
+    }
+  </style>
+</head>
+
+<body class="dark min-h-screen">
+
+  <!-- ===== HEADER ===== -->
+  <header class="sticky top-0 z-50 glass border-b border-brand-800/30">
+    <div class="max-w-[1600px] mx-auto px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-accent-cyan flex items-center justify-center text-white font-bold text-sm">B0</div>
+        <div>
+          <h1 class="text-base font-bold gradient-text tracking-tight">BusFactor Zero</h1>
+          <p class="text-xs text-slate-500">Autonomous Company Brain · FalkorDB GraphRAG</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="health-indicator" class="flex items-center gap-2 text-xs text-slate-500">
+          <div class="pulse-dot"></div>
+          <span id="health-text">Connecting...</span>
+        </div>
+        <button id="seed-btn" onclick="seedGraph()"
+          class="px-4 py-1.5 text-xs font-semibold rounded-lg border border-brand-600/40 text-brand-400 hover:bg-brand-900/40 hover:border-brand-500 transition-all duration-200 flex items-center gap-2">
+          <span>⚡</span> Reseed Graph
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== MAIN LAYOUT ===== -->
+  <div class="max-w-[1600px] mx-auto px-6 py-6 grid grid-cols-12 gap-5" style="height: calc(100vh - 60px);">
+
+    <!-- LEFT SIDEBAR -->
+    <aside class="col-span-3 flex flex-col gap-4 overflow-y-auto">
+
+      <!-- Bus Factor Scan -->
+      <div class="glass rounded-xl p-4 glow-green">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-brand-300 flex items-center gap-2">
+            <span>🎯</span> Bus Factor Scan
+          </h2>
+          <button onclick="runBottleneckScan()" id="scan-btn"
+            class="px-3 py-1 text-xs font-semibold rounded-lg bg-brand-600/20 border border-brand-500/30 text-brand-400 hover:bg-brand-600/40 transition-all">
+            Scan Now
+          </button>
+        </div>
+
+        <div id="bottleneck-list" class="space-y-2 scroll-panel">
+          <p class="text-xs text-slate-500 italic">Click "Scan Now" to detect single-point-of-failure modules...</p>
+        </div>
+      </div>
+
+      <!-- Simulate Leave -->
+      <div class="glass rounded-xl p-4">
+        <h2 class="text-sm font-semibold text-accent-amber mb-3 flex items-center gap-2">
+          <span>🚨</span> Simulate Developer Leave
+        </h2>
+        <select id="dev-selector"
+          class="w-full bg-surface-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 mb-3 focus:outline-none focus:border-brand-500 transition-colors">
+          <option value="">— Select Developer —</option>
+        </select>
+        <button id="simulate-btn" onclick="runSimulation()"
+          class="w-full py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-accent-amber/80 to-rose-500/80 text-white hover:from-accent-amber hover:to-rose-500 transition-all duration-300 flex items-center justify-center gap-2">
+          <span>⚡</span> Run Autonomous Mitigation
+        </button>
+        <p class="text-xs text-slate-600 mt-2 text-center">Triggers Q1→Q2→Q3→GraphRAG→LLM pipeline</p>
+      </div>
+
+      <!-- Legend -->
+      <div class="glass rounded-xl p-4">
+        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Graph Legend</h3>
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#2d9b6e"></span><span class="text-slate-300">Developer</span></div>
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#22d3ee"></span><span class="text-slate-300">Module</span></div>
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#a78bfa"></span><span class="text-slate-300">PullRequest</span></div>
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#f59e0b"></span><span class="text-slate-300">Feature</span></div>
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#f43f5e"></span><span class="text-slate-300">AgentMemory</span></div>
+        </div>
+        <div class="mt-3 pt-3 border-t border-slate-800">
+          <div class="text-xs text-slate-500 space-y-1">
+            <div><span class="text-brand-500">━━</span> AUTHORED / REVIEWED</div>
+            <div><span class="text-accent-cyan">━━</span> MODIFIES</div>
+            <div><span class="text-accent-amber">━━</span> DEPENDS_ON</div>
+            <div><span class="text-accent-violet">━━</span> SHADOW_ASSIGNED_TO</div>
+            <div><span class="text-rose-400">━━</span> REQUIRES_MODULE</div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- CENTER: GRAPH -->
+    <main class="col-span-6 flex flex-col gap-4">
+
+      <!-- Graph Visualization -->
+      <div class="glass rounded-xl flex-1 relative overflow-hidden" style="min-height: 420px;">
+        <div class="absolute top-3 left-4 z-10 flex items-center gap-3">
+          <span class="text-xs font-semibold text-brand-400 uppercase tracking-wider">Live Graph · CompanyBrain</span>
+          <span id="node-count" class="text-xs text-slate-500"></span>
+        </div>
+        <div class="absolute top-3 right-4 z-10 flex gap-2">
+          <button onclick="refreshGraph()" class="px-2 py-1 text-xs rounded border border-slate-700 text-slate-400 hover:border-brand-500 hover:text-brand-400 transition-all">
+            ↻ Refresh
+          </button>
+          <button onclick="fitGraph()" class="px-2 py-1 text-xs rounded border border-slate-700 text-slate-400 hover:border-brand-500 hover:text-brand-400 transition-all">
+            ⊡ Fit
+          </button>
+        </div>
+        <div id="graph-canvas" style="height: 100%; padding-top: 40px;"></div>
+        <div id="graph-loader" class="absolute inset-0 flex items-center justify-center bg-surface-900/80 z-20">
+          <div class="text-center">
+            <div class="loader mx-auto mb-3"></div>
+            <p class="text-sm text-slate-400">Loading graph from FalkorDB...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Bar -->
+      <div id="stats-bar" class="grid grid-cols-4 gap-3">
+        <div class="glass rounded-lg p-3 text-center">
+          <div class="text-xl font-bold text-brand-400" id="stat-devs">—</div>
+          <div class="text-xs text-slate-500 mt-1">Developers</div>
+        </div>
+        <div class="glass rounded-lg p-3 text-center">
+          <div class="text-xl font-bold text-accent-cyan" id="stat-modules">—</div>
+          <div class="text-xs text-slate-500 mt-1">Modules</div>
+        </div>
+        <div class="glass rounded-lg p-3 text-center">
+          <div class="text-xl font-bold text-accent-violet" id="stat-prs">—</div>
+          <div class="text-xs text-slate-500 mt-1">Pull Requests</div>
+        </div>
+        <div class="glass rounded-lg p-3 text-center">
+          <div class="text-xl font-bold text-accent-rose" id="stat-bottlenecks">—</div>
+          <div class="text-xs text-slate-500 mt-1">Bottlenecks</div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside class="col-span-3 flex flex-col gap-4 overflow-y-auto">
+
+      <!-- Cypher Execution Inspector -->
+      <div class="glass rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-accent-cyan flex items-center gap-2">
+            <span>🔍</span> Cypher Inspector
+          </h2>
+          <span id="cypher-label" class="badge badge-medium text-xs">—</span>
+        </div>
+        <div id="cypher-display" class="cypher-block text-xs">
+<span class="text-slate-600">-- Cypher queries will appear here as the agent executes them.
+-- Run a bottleneck scan or simulation to begin.</span>
+        </div>
+        <div id="cypher-params" class="mt-2 text-xs text-slate-600 font-mono"></div>
+      </div>
+
+      <!-- Results Panel -->
+      <div class="glass rounded-xl p-4 flex-1 flex flex-col">
+        <div class="flex items-center gap-2 mb-3">
+          <!-- Tabs -->
+          <button id="tab-blast" class="tab-btn active px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all" onclick="showTab('blast')">Blast Radius</button>
+          <button id="tab-backup" class="tab-btn px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all" onclick="showTab('backup')">Backup Recs</button>
+          <button id="tab-packet" class="tab-btn px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all" onclick="showTab('packet')">Handoff Packet</button>
+        </div>
+
+        <!-- Blast Radius -->
+        <div id="panel-blast" class="scroll-panel flex-1">
+          <div id="blast-content">
+            <p class="text-xs text-slate-600 italic">Simulate a developer leaving to see the organizational blast radius...</p>
+          </div>
+        </div>
+
+        <!-- Backup Recommendations -->
+        <div id="panel-backup" class="scroll-panel flex-1 hidden">
+          <div id="backup-content">
+            <p class="text-xs text-slate-600 italic">Graph-ranked backup engineers will appear here...</p>
+          </div>
+        </div>
+
+        <!-- Handoff Packet -->
+        <div id="panel-packet" class="scroll-panel flex-1 hidden">
+          <div id="packet-content" class="packet-content">
+            <p class="text-xs text-slate-600 italic">The AI-generated technical handoff packet will appear here...</p>
+          </div>
+          <div id="mitigate-btn-container" class="hidden mt-4">
+            <button id="mitigate-btn" onclick="commitMitigation()"
+              class="w-full py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-brand-600 to-accent-cyan/80 text-white hover:from-brand-500 hover:to-accent-cyan transition-all duration-300 flex items-center justify-center gap-2">
+              <span>💾</span> Commit to FalkorDB (Q4)
+            </button>
+            <p class="text-xs text-slate-600 text-center mt-1">Creates AgentMemory + SHADOW_ASSIGNED_TO edge</p>
+          </div>
+        </div>
+
+      </div>
+
+    </aside>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 max-w-sm hidden animate-slide-up">
+    <div id="toast-inner" class="glass rounded-xl px-5 py-3 text-sm font-medium border"></div>
+  </div>
+
+  <!-- ===== SCRIPTS ===== -->
+  <script>
+    // -----------------------------------------------------------------------
+    // State
+    // -----------------------------------------------------------------------
+    let network = null;
+    let graphData = { nodes: [], edges: [] };
+    let simulationResult = null;
+    let pendingMitigation = null;
+    const API = '';  // same-origin
+
+    // -----------------------------------------------------------------------
+    // Toast
+    // -----------------------------------------------------------------------
+    function showToast(msg, type = 'info') {
+      const t = document.getElementById('toast');
+      const ti = document.getElementById('toast-inner');
+      const colors = {
+        info:    'border-brand-600/40 text-brand-300',
+        success: 'border-emerald-600/40 text-emerald-300',
+        error:   'border-rose-600/40 text-rose-300',
+        warn:    'border-amber-600/40 text-amber-300',
+      };
+      ti.className = `glass rounded-xl px-5 py-3 text-sm font-medium border ${colors[type] || colors.info}`;
+      ti.textContent = msg;
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 4000);
+    }
+
+    // -----------------------------------------------------------------------
+    // Cypher Inspector
+    // -----------------------------------------------------------------------
+    function syntaxHighlight(cypher) {
+      return cypher
+        .replace(/\b(MATCH|OPTIONAL MATCH)\b/g, '<span class="kw-match">$1</span>')
+        .replace(/\b(RETURN)\b/g, '<span class="kw-return">$1</span>')
+        .replace(/\b(WHERE)\b/g, '<span class="kw-where">$1</span>')
+        .replace(/\b(CREATE)\b/g, '<span class="kw-create">$1</span>')
+        .replace(/\b(MERGE)\b/g, '<span class="kw-merge">$1</span>')
+        .replace(/\b(WITH|UNWIND|SET|ORDER BY|LIMIT)\b/g, '<span class="kw-with">$1</span>');
+    }
+
+    function setCypher(label, cypher, params = {}) {
+      document.getElementById('cypher-label').textContent = label;
+      document.getElementById('cypher-display').innerHTML = syntaxHighlight(cypher);
+      const p = document.getElementById('cypher-params');
+      if (Object.keys(params).length) {
+        p.textContent = 'Params: ' + JSON.stringify(params, null, 2);
+      } else {
+        p.textContent = '';
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Tab switching
+    // -----------------------------------------------------------------------
+    function showTab(tab) {
+      ['blast', 'backup', 'packet'].forEach(t => {
+        document.getElementById(`panel-${t}`).classList.add('hidden');
+        document.getElementById(`tab-${t}`).classList.remove('active');
+      });
+      document.getElementById(`panel-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+
+    // -----------------------------------------------------------------------
+    // Health Check
+    // -----------------------------------------------------------------------
+    async function checkHealth() {
+      try {
+        const r = await fetch(`${API}/api/health`);
+        const d = await r.json();
+        const el = document.getElementById('health-text');
+        if (d.status === 'healthy') {
+          el.textContent = `FalkorDB ✓ · ${d.node_count} nodes`;
+          el.classList.add('text-emerald-500');
+        } else {
+          el.textContent = 'FalkorDB ✗ — check Docker';
+          el.classList.add('text-rose-400');
+        }
+      } catch {
+        document.getElementById('health-text').textContent = 'Backend unreachable';
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Graph Visualization
+    // -----------------------------------------------------------------------
+    const NODE_COLORS = {
+      Developer:   { background: '#1a3d2e', border: '#2d9b6e', highlight: { background: '#2d4a38', border: '#4cb488' } },
+      Module:      { background: '#0e2a35', border: '#22d3ee', highlight: { background: '#153545', border: '#67e8f9' } },
+      PullRequest: { background: '#1e1a3d', border: '#a78bfa', highlight: { background: '#2a244a', border: '#c4b5fd' } },
+      Feature:     { background: '#362a0d', border: '#f59e0b', highlight: { background: '#433510', border: '#fbbf24' } },
+      AgentMemory: { background: '#2d0f18', border: '#f43f5e', highlight: { background: '#3a1422', border: '#fb7185' } },
+    };
+
+    const EDGE_COLORS = {
+      AUTHORED:           '#2d9b6e',
+      REVIEWED:           '#059669',
+      MODIFIES:           '#22d3ee',
+      DEPENDS_ON:         '#f59e0b',
+      REQUIRES_MODULE:    '#f43f5e',
+      SHADOW_ASSIGNED_TO: '#a78bfa',
+      MITIGATES_RISK_ON:  '#fb923c',
+    };
+
+    function initGraph(data) {
+      const nodes = new vis.DataSet(data.nodes.map(n => ({
+        id: n.id,
+        label: n.label,
+        title: buildTooltip(n),
+        color: NODE_COLORS[n.group] || { background: '#1e293b', border: '#475569' },
+        font: { color: '#e2e8f0', size: 11, face: 'Inter' },
+        borderWidth: 2,
+        shadow: { enabled: true, color: 'rgba(0,0,0,0.5)', size: 6 },
+        shape: n.group === 'Developer' ? 'dot' :
+               n.group === 'Module'    ? 'diamond' :
+               n.group === 'Feature'   ? 'star' :
+               n.group === 'AgentMemory' ? 'triangleDown' : 'dot',
+        size: n.group === 'Module' ? 18 :
+              n.group === 'Feature' ? 16 :
+              n.group === 'Developer' ? 14 : 10,
+      })));
+
+      const edges = new vis.DataSet(data.edges.map((e, i) => ({
+        id: i,
+        from: e.from,
+        to: e.to,
+        label: e.label,
+        color: { color: EDGE_COLORS[e.label] || '#475569', opacity: 0.7 },
+        font: { color: EDGE_COLORS[e.label] || '#64748b', size: 9, face: 'JetBrains Mono', strokeWidth: 0 },
+        arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+        width: e.label === 'DEPENDS_ON' ? 2 : 1.5,
+        dashes: e.label === 'SHADOW_ASSIGNED_TO',
+        smooth: { type: 'curvedCW', roundness: 0.2 },
+      })));
+
+      const container = document.getElementById('graph-canvas');
+      const options = {
+        physics: {
+          stabilization: { iterations: 150 },
+          barnesHut: { gravitationalConstant: -6000, centralGravity: 0.3, springLength: 160, springConstant: 0.04, damping: 0.09 },
+        },
+        interaction: { hover: true, zoomView: true, dragNodes: true, tooltipDelay: 200 },
+        layout: { improvedLayout: true },
+      };
+
+      if (network) network.destroy();
+      network = new vis.Network(container, { nodes, edges }, options);
+      network.once('stabilizationIterationsDone', () => {
+        document.getElementById('graph-loader').style.opacity = '0';
+        setTimeout(() => document.getElementById('graph-loader').style.display = 'none', 500);
+      });
+
+      // Update stats
+      const devs    = data.nodes.filter(n => n.group === 'Developer').length;
+      const mods    = data.nodes.filter(n => n.group === 'Module').length;
+      const prs     = data.nodes.filter(n => n.group === 'PullRequest').length;
+      document.getElementById('stat-devs').textContent    = devs;
+      document.getElementById('stat-modules').textContent = mods;
+      document.getElementById('stat-prs').textContent     = prs;
+      document.getElementById('node-count').textContent   = `${data.nodes.length} nodes · ${data.edges.length} edges`;
+    }
+
+    function buildTooltip(n) {
+      const props = n.properties || {};
+      let html = `<div style="background:#0d1520;border:1px solid #2d9b6e;border-radius:8px;padding:10px;font-family:Inter,sans-serif;font-size:12px;max-width:280px;color:#e2e8f0">`;
+      html += `<div style="color:#4cb488;font-weight:700;margin-bottom:6px">${n.group}</div>`;
+      for (const [k, v] of Object.entries(props)) {
+        if (typeof v === 'string' && v.length > 100) {
+          html += `<div><span style="color:#64748b">${k}:</span> ${v.slice(0, 100)}…</div>`;
+        } else {
+          html += `<div><span style="color:#64748b">${k}:</span> ${v}</div>`;
+        }
+      }
+      html += '</div>';
+      return html;
+    }
+
+    async function refreshGraph() {
+      document.getElementById('graph-loader').style.display = 'flex';
+      document.getElementById('graph-loader').style.opacity = '1';
+      try {
+        const r = await fetch(`${API}/api/graph`);
+        const data = await r.json();
+        graphData = data;
+        initGraph(data);
+        setCypher('graph-fetch', data.cypher_nodes || 'MATCH (n) RETURN n, labels(n) AS labels');
+      } catch (e) {
+        showToast('Failed to load graph: ' + e.message, 'error');
+        document.getElementById('graph-loader').style.display = 'none';
+      }
+    }
+
+    function fitGraph() {
+      if (network) network.fit({ animation: { duration: 500 } });
+    }
+
+    // -----------------------------------------------------------------------
+    // Populate developer selector
+    // -----------------------------------------------------------------------
+    async function loadDevelopers() {
+      try {
+        const r = await fetch(`${API}/api/developers`);
+        const d = await r.json();
+        const sel = document.getElementById('dev-selector');
+        d.developers.forEach(dev => {
+          const opt = document.createElement('option');
+          opt.value = dev.handle;
+          opt.textContent = `${dev.name} (${dev.handle}) · ${dev.role}`;
+          sel.appendChild(opt);
+        });
+      } catch {}
+    }
+
+    // -----------------------------------------------------------------------
+    // Bus Factor Scan (Q1)
+    // -----------------------------------------------------------------------
+    async function runBottleneckScan() {
+      const btn = document.getElementById('scan-btn');
+      btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:1.5px"></span>';
+      btn.disabled = true;
+
+      try {
+        const r = await fetch(`${API}/api/bottlenecks`);
+        const d = await r.json();
+
+        setCypher('Q1 · detect_bus_factor_bottlenecks', d.cypher, d.params);
+
+        const container = document.getElementById('bottleneck-list');
+        if (!d.result || d.result.length === 0) {
+          container.innerHTML = '<p class="text-xs text-emerald-400">✓ No bus-factor bottlenecks detected!</p>';
+          document.getElementById('stat-bottlenecks').textContent = '0';
+          return;
+        }
+
+        document.getElementById('stat-bottlenecks').textContent = d.result.length;
+
+        container.innerHTML = d.result.map(b => `
+          <div class="bg-surface-800/60 rounded-lg p-3 border border-slate-700/50 hover:border-rose-500/40 transition-all cursor-pointer"
+               onclick="document.getElementById('dev-selector').value='${b.sole_expert}'">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-semibold text-xs text-white">${b.module}</span>
+              <span class="badge badge-${b.criticality}">${b.criticality}</span>
+            </div>
+            <div class="text-xs text-rose-400 font-mono">sole expert: ${b.sole_expert}</div>
+            <div class="text-xs text-slate-500 mt-1">${b.blocking_feature}</div>
+            <div class="flex items-center justify-between mt-1.5">
+              <span class="text-xs text-amber-400">${b.revenue_impact}</span>
+              <span class="text-xs text-slate-500">${b.deadline_days}d deadline</span>
+            </div>
+          </div>
+        `).join('');
+
+      } catch (e) {
+        showToast('Scan failed: ' + e.message, 'error');
+      } finally {
+        btn.innerHTML = 'Scan Now';
+        btn.disabled = false;
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Simulation (Q2 + Q3 + GraphRAG + LLM)
+    // -----------------------------------------------------------------------
+    async function runSimulation() {
+      const handle = document.getElementById('dev-selector').value;
+      if (!handle) { showToast('Please select a developer first', 'warn'); return; }
+
+      const btn = document.getElementById('simulate-btn');
+      btn.innerHTML = '<span class="loader" style="width:14px;height:14px;border-width:2px"></span> Running Agent Pipeline...';
+      btn.disabled = true;
+
+      // Show loading states
+      document.getElementById('blast-content').innerHTML = `<div class="flex items-center gap-2 text-xs text-slate-400"><div class="loader" style="width:12px;height:12px;border-width:1.5px"></div> Running Q2 blast radius + Q3 backup + GraphRAG...</div>`;
+      showTab('blast');
+
+      try {
+        const r = await fetch(`${API}/api/simulate-leave`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dev_handle: handle }),
+        });
+        const d = await r.json();
+        simulationResult = d;
+
+        // Update Cypher inspector with the blast radius query
+        if (d.execution_log && d.execution_log.length > 0) {
+          const step = d.execution_log.find(s => s.step === 'simulate_developer_unavailable') || d.execution_log[0];
+          setCypher('Q2 · simulate_developer_unavailable', step.cypher, step.params);
+        }
+
+        renderBlastRadius(d);
+        renderBackupRecommendations(d);
+        renderHandoffPackets(d);
+        await refreshGraph();
+        showToast('Agent pipeline completed ✓', 'success');
+
+      } catch (e) {
+        showToast('Simulation failed: ' + e.message, 'error');
+        document.getElementById('blast-content').innerHTML = `<p class="text-xs text-rose-400">Error: ${e.message}</p>`;
+      } finally {
+        btn.innerHTML = '<span>⚡</span> Run Autonomous Mitigation';
+        btn.disabled = false;
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Render Blast Radius
+    // -----------------------------------------------------------------------
+    function renderBlastRadius(d) {
+      const br = d.blast_result || {};
+      const direct = d.directly_compromised || [];
+      const cascade = d.cascade_compromised || [];
+      const features = d.blocked_features || [];
+
+      const scoreColor = d.blast_radius_score > 5 ? 'border-rose-500 text-rose-400' :
+                         d.blast_radius_score > 3 ? 'border-amber-500 text-amber-400' :
+                         'border-brand-500 text-brand-400';
+
+      document.getElementById('blast-content').innerHTML = `
+        <div class="space-y-3">
+          <div class="flex items-center gap-4">
+            <div class="score-ring ${scoreColor}">${d.blast_radius_score}</div>
+            <div>
+              <div class="text-sm font-bold text-white">${br.developer || d.triggered_by}</div>
+              <div class="text-xs text-slate-500">Blast Radius Score</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-xs font-semibold text-rose-400 uppercase tracking-wider mb-1.5">⚠ Directly Compromised</div>
+            <div class="flex flex-wrap gap-1.5">
+              ${direct.map(m => `<span class="badge badge-critical">${m}</span>`).join('') || '<span class="text-xs text-slate-600">None</span>'}
+            </div>
+          </div>
+
+          <div>
+            <div class="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1.5">⬇ Cascade Compromised (DEPENDS_ON*1..3)</div>
+            <div class="flex flex-wrap gap-1.5">
+              ${cascade.map(m => `<span class="badge badge-high">${m}</span>`).join('') || '<span class="text-xs text-slate-600">None</span>'}
+            </div>
+          </div>
+
+          <div>
+            <div class="text-xs font-semibold text-violet-400 uppercase tracking-wider mb-1.5">🚫 Blocked Client Features</div>
+            <div class="space-y-1.5">
+              ${features.map(f => `
+                <div class="bg-surface-800/60 rounded p-2 border border-slate-700/40">
+                  <div class="text-xs font-semibold text-white">${f.name || f}</div>
+                  <div class="flex items-center gap-3 mt-0.5">
+                    <span class="text-xs text-amber-400">${f.revenue || ''}</span>
+                    <span class="text-xs text-slate-500">${f.deadline !== undefined ? f.deadline + 'd left' : ''}</span>
+                  </div>
+                </div>
+              `).join('') || '<span class="text-xs text-slate-600">No features blocked</span>'}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // -----------------------------------------------------------------------
+    // Render Backup Recommendations
+    // -----------------------------------------------------------------------
+    function renderBackupRecommendations(d) {
+      const recs = d.module_recommendations || {};
+
+      if (d.execution_log) {
+        const step = d.execution_log.find(s => s.step && s.step.startsWith('recommend_backup_engineer'));
+        if (step) setCypher('Q3 · recommend_backup_engineer', step.cypher, step.params);
+      }
+
+      let html = '';
+      for (const [mod, candidates] of Object.entries(recs)) {
+        html += `<div class="mb-3">
+          <div class="text-xs font-semibold text-accent-cyan uppercase tracking-wider mb-1.5">📦 ${mod}</div>
+          <div class="space-y-1.5">`;
+        if (!candidates || candidates.length === 0) {
+          html += '<p class="text-xs text-slate-600 italic">No backup candidates found</p>';
+        } else {
+          candidates.forEach((c, i) => {
+            const rankColors = ['text-amber-400', 'text-slate-300', 'text-slate-500'];
+            const medals = ['🥇', '🥈', '🥉'];
+            html += `
+              <div class="bg-surface-800/60 rounded p-2.5 border border-slate-700/40 hover:border-brand-600/40 transition-all">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold ${rankColors[i]}">${medals[i]} ${c.recommended_dev}</span>
+                  <span class="text-xs text-brand-400 font-mono">score: ${c.proximity_score}</span>
+                </div>
+                <div class="text-xs text-slate-500 mt-0.5">${c.handle} · ${c.role}</div>
+                <div class="flex flex-wrap gap-1 mt-1">
+                  ${(c.reasons || []).map(r => `<span class="text-xs bg-brand-900/30 text-brand-400 px-1.5 py-0.5 rounded">${r}</span>`).join('')}
+                </div>
+              </div>`;
+          });
+        }
+        html += '</div></div>';
+      }
+
+      document.getElementById('backup-content').innerHTML = html || '<p class="text-xs text-slate-600 italic">No recommendations generated.</p>';
+    }
+
+    // -----------------------------------------------------------------------
+    // Render Handoff Packets
+    // -----------------------------------------------------------------------
+    function renderHandoffPackets(d) {
+      const packets = d.handoff_packets || {};
+      const modules = Object.keys(packets);
+
+      if (modules.length === 0) {
+        document.getElementById('packet-content').innerHTML = '<p class="text-xs text-slate-600 italic">No handoff packets generated.</p>';
+        return;
+      }
+
+      const firstModule = modules[0];
+      const firstPacket = packets[firstModule];
+
+      // Convert markdown-ish text to HTML
+      const formatted = (firstPacket.packet || '')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>[\s\S]+?<\/li>)/gm, '<ul>$1</ul>')
+        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/^(?!<[h|u|l|b|p])(.+)$/gm, '<p>$1</p>');
+
+      document.getElementById('packet-content').innerHTML = formatted;
+
+      // Prepare mitigation payload
+      if (firstPacket.backup_handle) {
+        pendingMitigation = {
+          module_name: firstModule,
+          backup_dev_handle: firstPacket.backup_handle,
+          handoff_summary: firstPacket.packet,
+          confidence: 0.92,
+        };
+        document.getElementById('mitigate-btn-container').classList.remove('hidden');
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Commit Mitigation to FalkorDB (Q4)
+    // -----------------------------------------------------------------------
+    async function commitMitigation() {
+      if (!pendingMitigation) return;
+
+      const btn = document.getElementById('mitigate-btn');
+      btn.innerHTML = '<span class="loader" style="width:14px;height:14px;border-width:2px"></span> Writing to FalkorDB...';
+      btn.disabled = true;
+
+      try {
+        const r = await fetch(`${API}/api/agent/mitigate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(pendingMitigation),
+        });
+        const d = await r.json();
+
+        setCypher('Q4 · commit_agent_handoff_memory', d.cypher || '', d.params || {});
+
+        if (d.result && d.result.length > 0) {
+          const res = d.result[0];
+          showToast(`✓ AgentMemory committed! ${res.backup_dev} shadow-assigned to ${res.module}`, 'success');
+          await refreshGraph();
+          btn.innerHTML = '✓ Committed to FalkorDB';
+          btn.className = btn.className.replace('from-brand-600', 'from-emerald-600').replace('to-accent-cyan/80', 'to-emerald-400/80');
+        }
+      } catch (e) {
+        showToast('Commit failed: ' + e.message, 'error');
+        btn.innerHTML = '<span>💾</span> Commit to FalkorDB (Q4)';
+        btn.disabled = false;
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Seed Graph
+    // -----------------------------------------------------------------------
+    async function seedGraph() {
+      const btn = document.getElementById('seed-btn');
+      btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:1.5px"></span>';
+      btn.disabled = true;
+
+      try {
+        const r = await fetch(`${API}/api/seed`, { method: 'POST' });
+        const d = await r.json();
+        showToast(`Graph reseeded ✓ — ${d.developers} devs, ${d.modules} modules, ${d.pull_requests} PRs`, 'success');
+        await refreshGraph();
+        await loadDevelopers();
+      } catch (e) {
+        showToast('Seed failed: ' + e.message, 'error');
+      } finally {
+        btn.innerHTML = '<span>⚡</span> Reseed Graph';
+        btn.disabled = false;
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Init
+    // -----------------------------------------------------------------------
+    async function init() {
+      await Promise.all([checkHealth(), refreshGraph(), loadDevelopers()]);
+      // Auto-run bottleneck scan on load
+      setTimeout(runBottleneckScan, 800);
+    }
+
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
