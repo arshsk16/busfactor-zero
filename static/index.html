@@ -178,7 +178,11 @@
           <div class="pulse-dot"></div>
           <span id="health-text">Connecting...</span>
         </div>
-        <button id="seed-btn" onclick="seedGraph()"
+        <button id="audit-btn" onclick="runExecutiveAudit()"
+          class="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-accent-cyan/40 text-accent-cyan hover:bg-accent-cyan/10 transition-all duration-200 flex items-center gap-1.5">
+          <span>📊</span> Executive Audit
+        </button>
+        <button id="seed-btn" onclick="seedGraph()" 
           class="px-4 py-1.5 text-xs font-semibold rounded-lg border border-brand-600/40 text-brand-400 hover:bg-brand-900/40 hover:border-brand-500 transition-all duration-200 flex items-center gap-2">
           <span>⚡</span> Reseed Graph
         </button>
@@ -223,6 +227,22 @@
           <span>⚡</span> Run Autonomous Mitigation
         </button>
         <p class="text-xs text-slate-600 mt-2 text-center">Triggers Q1→Q2→Q3→GraphRAG→LLM pipeline</p>
+      </div>
+
+      <!-- Live GitHub Ingestion -->
+      <div class="glass rounded-xl p-4">
+        <h2 class="text-sm font-semibold text-accent-violet mb-2 flex items-center gap-2">
+          <span>🐙</span> Live GitHub Repo Ingest
+        </h2>
+        <div class="flex gap-2 mb-2">
+          <input id="gh-repo-input" type="text" placeholder="owner/repo (e.g. tiangolo/fastapi)"
+            value="FalkorDB/falkordb-py"
+            class="w-full bg-surface-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-accent-violet" />
+        </div>
+        <button id="gh-ingest-btn" onclick="ingestGitHubRepo()"
+          class="w-full py-1.5 text-xs font-semibold rounded-lg bg-accent-violet/20 border border-accent-violet/40 text-accent-violet hover:bg-accent-violet/30 transition-all flex items-center justify-center gap-1.5">
+          <span>⬇</span> Ingest Public PRs into FalkorDB
+        </button>
       </div>
 
       <!-- Legend -->
@@ -567,6 +587,7 @@
         const r = await fetch(`${API}/api/developers`);
         const d = await r.json();
         const sel = document.getElementById('dev-selector');
+        sel.innerHTML = '<option value="">— Select Developer —</option>';
         d.developers.forEach(dev => {
           const opt = document.createElement('option');
           opt.value = dev.handle;
@@ -765,22 +786,12 @@
     }
 
     // -----------------------------------------------------------------------
-    // Render Handoff Packets
+    // Render Handoff Packets (Multi-Module Switcher)
     // -----------------------------------------------------------------------
-    function renderHandoffPackets(d) {
-      const packets = d.handoff_packets || {};
-      const modules = Object.keys(packets);
+    let currentPacketModule = null;
 
-      if (modules.length === 0) {
-        document.getElementById('packet-content').innerHTML = '<p class="text-xs text-slate-600 italic">No handoff packets generated.</p>';
-        return;
-      }
-
-      const firstModule = modules[0];
-      const firstPacket = packets[firstModule];
-
-      // Convert markdown-ish text to HTML
-      const formatted = (firstPacket.packet || '')
+    function formatMarkdown(md) {
+      return (md || '')
         .replace(/^## (.+)$/gm, '<h2>$1</h2>')
         .replace(/^### (.+)$/gm, '<h3>$1</h3>')
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -788,25 +799,61 @@
         .replace(/^- (.+)$/gm, '<li>$1</li>')
         .replace(/(<li>[\s\S]+?<\/li>)/gm, '<ul>$1</ul>')
         .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/^(?!<[h|u|l|b|p])(.+)$/gm, '<p>$1</p>');
+        .replace(/\n\n/g, '</p><p>');
+    }
 
-      document.getElementById('packet-content').innerHTML = formatted;
+    function selectPacketModule(modName) {
+      if (!simulationResult || !simulationResult.handoff_packets) return;
+      const packets = simulationResult.handoff_packets;
+      const modules = Object.keys(packets);
+      currentPacketModule = modName;
+      const pkt = packets[modName];
+      if (!pkt) return;
 
-      // Prepare mitigation payload
-      if (firstPacket.backup_handle) {
+      const pillsHtml = modules.length > 1 ? `
+        <div class="flex flex-wrap gap-1.5 mb-3 pb-2 border-b border-slate-800">
+          ${modules.map(m => `
+            <button onclick="selectPacketModule('${m}')"
+              class="px-2.5 py-1 text-xs font-mono rounded ${m === modName ? 'bg-brand-600 text-white font-semibold' : 'bg-surface-800 text-slate-400 hover:text-white'}">
+              📦 ${m}
+            </button>
+          `).join('')}
+        </div>
+      ` : '';
+
+      document.getElementById('packet-content').innerHTML = pillsHtml + formatMarkdown(pkt.packet);
+
+      const btn = document.getElementById('mitigate-btn');
+      btn.disabled = false;
+      btn.innerHTML = `<span>💾</span> Commit ${modName} Handoff to FalkorDB (Q4)`;
+
+      if (pkt.backup_handle && pkt.backup_handle !== 'N/A') {
         pendingMitigation = {
-          module_name: firstModule,
-          backup_dev_handle: firstPacket.backup_handle,
-          handoff_summary: firstPacket.packet,
+          module_name: modName,
+          backup_dev_handle: pkt.backup_handle,
+          handoff_summary: pkt.packet,
           confidence: 0.92,
         };
         document.getElementById('mitigate-btn-container').classList.remove('hidden');
+      } else {
+        document.getElementById('mitigate-btn-container').classList.add('hidden');
       }
     }
 
+    function renderHandoffPackets(d) {
+      const packets = d.handoff_packets || {};
+      const modules = Object.keys(packets);
+
+      if (modules.length === 0) {
+        document.getElementById('packet-content').innerHTML = '<p class="text-xs text-slate-600 italic">No handoff packets generated.</p>';
+        document.getElementById('mitigate-btn-container').classList.add('hidden');
+        return;
+      }
+      selectPacketModule(modules[0]);
+    }
+
     // -----------------------------------------------------------------------
-    // Commit Mitigation to FalkorDB (Q4)
+    // Commit Mitigation to FalkorDB (Q4) — Updates Graph + Bottleneck Count Live!
     // -----------------------------------------------------------------------
     async function commitMitigation() {
       if (!pendingMitigation) return;
@@ -828,13 +875,68 @@
         if (d.result && d.result.length > 0) {
           const res = d.result[0];
           showToast(`✓ AgentMemory committed! ${res.backup_dev} shadow-assigned to ${res.module}`, 'success');
-          await refreshGraph();
-          btn.innerHTML = '✓ Committed to FalkorDB';
-          btn.className = btn.className.replace('from-brand-600', 'from-emerald-600').replace('to-accent-cyan/80', 'to-emerald-400/80');
+          await Promise.all([refreshGraph(), runBottleneckScan(), checkHealth()]);
+          btn.innerHTML = `✓ ${res.module} Mitigated in FalkorDB`;
         }
       } catch (e) {
         showToast('Commit failed: ' + e.message, 'error');
         btn.innerHTML = '<span>💾</span> Commit to FalkorDB (Q4)';
+        btn.disabled = false;
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Live GitHub Ingestion & Executive Audit
+    // -----------------------------------------------------------------------
+    async function ingestGitHubRepo() {
+      const val = (document.getElementById('gh-repo-input').value || '').trim();
+      if (!val.includes('/')) {
+        showToast('Enter owner/repo (e.g. FalkorDB/falkordb-py)', 'warn');
+        return;
+      }
+      const [owner, repo] = val.split('/');
+      const btn = document.getElementById('gh-ingest-btn');
+      btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:1.5px"></span> Ingesting GitHub PRs...';
+      btn.disabled = true;
+
+      try {
+        const r = await fetch(`${API}/api/ingest-github`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ owner, repo, max_prs: 15 }),
+        });
+        const d = await r.json();
+        if (d.error) {
+          showToast(d.error, 'error');
+        } else {
+          showToast(`✓ Ingested ${d.prs} PRs & ${d.developers} devs from ${owner}/${repo}!`, 'success');
+          await Promise.all([refreshGraph(), loadDevelopers(), checkHealth()]);
+        }
+      } catch (e) {
+        showToast('GitHub ingest failed: ' + e.message, 'error');
+      } finally {
+        btn.innerHTML = '<span>⬇</span> Ingest Public PRs into FalkorDB';
+        btn.disabled = false;
+      }
+    }
+
+    async function runExecutiveAudit() {
+      const btn = document.getElementById('audit-btn');
+      btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:1.5px"></span> Auditing...';
+      btn.disabled = true;
+
+      try {
+        const r = await fetch(`${API}/api/audit`);
+        const d = await r.json();
+        setCypher('Q1 · executive_company_audit', d.cypher || '');
+        document.getElementById('packet-content').innerHTML = formatMarkdown(d.executive_summary || '');
+        document.getElementById('mitigate-btn-container').classList.add('hidden');
+        showTab('packet');
+        showToast('Executive Company Brain Audit generated ✓', 'info');
+      } catch (e) {
+        showToast('Audit failed: ' + e.message, 'error');
+      } finally {
+        btn.innerHTML = '<span>📊</span> Executive Audit';
         btn.disabled = false;
       }
     }
@@ -851,8 +953,7 @@
         const r = await fetch(`${API}/api/seed`, { method: 'POST' });
         const d = await r.json();
         showToast(`Graph reseeded ✓ — ${d.developers} devs, ${d.modules} modules, ${d.pull_requests} PRs`, 'success');
-        await refreshGraph();
-        await loadDevelopers();
+        await Promise.all([refreshGraph(), loadDevelopers(), runBottleneckScan(), checkHealth()]);
       } catch (e) {
         showToast('Seed failed: ' + e.message, 'error');
       } finally {
