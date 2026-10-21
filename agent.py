@@ -5,18 +5,17 @@ Autonomous Company Brain Agent for BusFactor Zero.
 
 The agent orchestrates the full GraphRAG pipeline:
   1. Runs FalkorDB Cypher queries to identify at-risk modules + blast radius
-  2. Retrieves PR technical summaries from the graph (GraphRAG retrieval)
-  3. Generates a structured handoff packet via LLM (or fallback synthesizer)
+  2. Retrieves PR technical summaries & module architecture docs from FalkorDB (GraphRAG)
+  3. Generates a structured handoff packet via LLM (OpenAI / Groq / Gemini) or deterministic GraphRAG synthesizer
   4. Writes AgentMemory + SHADOW_ASSIGNED_TO back into FalkorDB
 
-The agent works without any API key using the built-in fallback synthesizer —
-the demo never crashes.
+The agent works out-of-the-box with zero API keys using the context-aware
+GraphRAG synthesizer — the demo never crashes.
 """
 
 import os
 import json
 from datetime import datetime, timezone
-from typing import Optional
 from dotenv import load_dotenv
 from graph_queries import (
     detect_bus_factor_bottlenecks,
@@ -24,125 +23,153 @@ from graph_queries import (
     recommend_backup_engineer,
     commit_agent_handoff_memory,
     get_graph as get_falkor_graph,
+    _result_to_dicts,
 )
 
 load_dotenv()
 
 
 # ---------------------------------------------------------------------------
-# LLM provider (OpenAI → fallback synthesizer)
+# Multi-Provider LLM Client (OpenAI / Groq / Gemini → GraphRAG Fallback)
 # ---------------------------------------------------------------------------
 
-def _get_openai_client():
+def _get_llm_client():
+    """Return (OpenAI_compatible_client, model_name) if any key is configured."""
     try:
         from openai import OpenAI
-        key = os.getenv("OPENAI_API_KEY", "")
-        if not key:
-            return None
-        return OpenAI(api_key=key)
+        if os.getenv("OPENAI_API_KEY"):
+            return OpenAI(api_key=os.getenv("OPENAI_API_KEY")), "gpt-4o-mini"
+        if os.getenv("GROQ_API_KEY"):
+            return (
+                OpenAI(
+                    api_key=os.getenv("GROQ_API_KEY"),
+                    base_url="https://api.groq.com/openai/v1",
+                ),
+                "llama-3.3-70b-versatile",
+            )
+        if os.getenv("GEMINI_API_KEY"):
+            return (
+                OpenAI(
+                    api_key=os.getenv("GEMINI_API_KEY"),
+                    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                ),
+                "gemini-2.5-flash",
+            )
     except ImportError:
-        return None
+        pass
+    return None, None
 
 
-def _llm_generate(prompt: str, system: str = "") -> str:
-    """Call OpenAI GPT-4o; fall back to the local synthesizer if unavailable."""
-    client = _get_openai_client()
-    if client:
+def _llm_generate(prompt: str, system: str = "", context_meta: dict | None = None) -> str:
+    """Call configured LLM; gracefully fall back to the GraphRAG synthesizer."""
+    client, model = _get_llm_client()
+    if client and model:
         try:
             messages = []
             if system:
                 messages.append({"role": "system", "content": system})
             messages.append({"role": "user", "content": prompt})
             response = client.chat.completions.create(
-                model="gpt-4o",
+                model=model,
                 messages=messages,
-                temperature=0.4,
+                temperature=0.35,
                 max_tokens=1200,
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
-            print(f"  ⚠ OpenAI error ({e}), falling back to synthesizer")
+            print(f"  ⚠ LLM API error ({e}), using deterministic GraphRAG synthesizer")
 
-    # Fallback synthesizer — deterministic, structured output
-    return _fallback_synthesizer(prompt)
+    return _fallback_synthesizer(prompt, context_meta or {})
 
 
-def _fallback_synthesizer(prompt: str) -> str:
+def _fallback_synthesizer(prompt: str, meta: dict) -> str:
     """
-    Deterministic handoff packet generator that produces structured output
-    when no LLM API key is configured.  Parses key facts from the prompt
-    so the output is still contextually meaningful.
+    Context-rich deterministic GraphRAG synthesizer when no LLM API key is set.
+    Uses actual FalkorDB subgraph context (module doc_summary, PR summaries,
+    reviewers, downstream dependencies, and blocked revenue features).
     """
-    lines = prompt.split("\n")
-    module = "unknown-module"
-    developer = "the departing developer"
-    backup = "the backup engineer"
-    pr_context = []
+    if meta.get("mode") == "audit":
+        bottlenecks = meta.get("bottlenecks", [])
+        health_score = max(15, 100 - (len(bottlenecks) * 18))
+        top_items = "
+".join(
+            f"- **`{b['module']}`** ({b['criticality'].upper()}) — Sole Expert: `{b['sole_expert']}` | "
+            f"Blocks: *{b['blocking_feature']}* ({b['revenue_impact']}, {b['deadline_days']}d deadline)"
+            for b in bottlenecks[:4]
+        )
+        return f"""## 🧠 Executive Company Brain Risk Audit
 
-    for line in lines:
-        if "Module:" in line:
-            module = line.split("Module:")[-1].strip()
-        if "Unavailable Developer:" in line:
-            developer = line.split("Unavailable Developer:")[-1].strip()
-        if "Recommended Backup:" in line:
-            backup = line.split("Recommended Backup:")[-1].strip()
-        if line.startswith("PR:") or line.startswith("- PR"):
-            pr_context.append(line.strip())
+**Overall Bus-Factor Health Score:** `{health_score}/100` ({len(bottlenecks)} unmitigated single-point-of-failure modules)
 
-    pr_bullets = "\n".join(f"  • {p}" for p in pr_context[:4]) if pr_context else "  • See module doc_summary for context."
+### Top Critical Bottlenecks (Ranked by Revenue & Deadline Urgency)
+{top_items or "- No active single-point-of-failure bottlenecks detected!"}
 
-    return f"""## 🤖 Autonomous GraphRAG Handoff Briefing
+### Immediate Actions Recommended (Next 48 Hours)
+- Trigger autonomous shadow-assignment handoffs for all **CRITICAL** modules with deadlines under 7 days.
+- Pair backup engineers identified via FalkorDB 2-hop proximity scoring on upcoming pull requests.
+- Enforce mandatory 2-reviewer branch protection on all modules linked to active ARR features.
+"""
 
-**Module At Risk:** `{module}`
-**Unavailable:** {developer}
-**Shadow-Assigned Backup:** {backup}
+    module = meta.get("module", "unknown-module")
+    doc_summary = meta.get("doc_summary", "Core production service module.")
+    developer = meta.get("unavailable_dev", "the departing developer")
+    backup = meta.get("backup_name", "the backup engineer")
+    backup_handle = meta.get("backup_handle", "@backup")
+    reasons = ", ".join(meta.get("backup_reasons", [])) or "Highest graph proximity in FalkorDB"
+    score = meta.get("proximity_score", 0)
+    cascade = ", ".join(f"`{c}`" for c in meta.get("cascade_compromised", [])) or "None (leaf module)"
+    prs = meta.get("prs", [])
 
-### Context Retrieved from FalkorDB Graph (GraphRAG)
-The following pull-request summaries were retrieved via multi-hop Cypher traversal
-and provide the technical context needed for the handoff:
+    if prs:
+        pr_section = "
+".join(
+            f"- **{p.get('pr_id', 'PR')} — {p.get('title', '')}** *(merged {p.get('merged_days_ago', '?')}d ago by {p.get('author', developer)}; reviewed by {', '.join(p.get('reviewers', [])) or 'team'})*
+"
+            f"  {p.get('summary', '')}"
+            for p in prs[:4]
+        )
+    else:
+        pr_section = f"- Module documentation summary: {doc_summary}"
 
-{pr_bullets}
+    return f"""## 🤖 Autonomous GraphRAG Handoff Briefing: `{module}`
 
-### Onboarding Checklist for {backup}
+**Module Architecture:** {doc_summary}
+**Unavailable Maintainer:** `{developer}`
+**Recommended Backup Engineer:** **{backup}** (`{backup_handle}`) — *Proximity Score: {score} ({reasons})*
+**Cascade Dependency Impact (`DEPENDS_ON*1..3`):** {cascade}
 
-1. **Read existing PRs** — Study the PR summaries above to understand recent changes,
-   architectural patterns, and known failure modes in `{module}`.
+### Retrieved Pull-Request Context (FalkorDB GraphRAG)
+{pr_section}
 
-2. **Run the test suite** — Execute the full integration test suite for `{module}`
-   and confirm a green build before making any changes.
+### 5-Step Technical Onboarding Checklist for {backup}
+- **1. Architecture & PR Walkthrough:** Review the merged PR changes above in `{module}`, focusing on edge-case handling and external service contracts.
+- **2. Dependency Boundary Verification:** Run integration tests covering `{module}` and its connected `DEPENDS_ON` neighbors ({cascade}).
+- **3. Shadow Code Review Lock:** Assume primary reviewer ownership on `{module}` (`SHADOW_ASSIGNED_TO` edge persisted in FalkorDB).
+- **4. Operational & Alerting Handoff:** Verify access to deployment pipelines, secrets, and latency/error SLO alerts for `{module}`.
+- **5. Feature Continuity Check:** Sync with product owners on blocked sprint deliverables to maintain delivery timeline.
 
-3. **Review open issues** — Check the issue tracker for any pending bugs or
-   feature work assigned to {developer} that must be re-triaged.
-
-4. **Schedule knowledge transfer** — If {developer} is reachable, arrange a
-   30-minute async Loom recording covering the non-obvious architecture decisions.
-
-5. **Monitor dashboards** — Set up alerting on the `{module}` SLO dashboards
-   (error rate, p99 latency) for the next 14 days during the transition.
-
-6. **Escalation path** — For architectural decisions, escalate to the Tech Lead
-   until confidence is established.
-
-### Risk Assessment
-- **Bus Factor was 1** for `{module}` — this handoff resolves the immediate risk.
-- Shadow assignment is now persisted in FalkorDB as an `AgentMemory` node.
-- Confidence score: **0.92** — high confidence based on graph proximity analysis.
-
-> Generated by BusFactor Zero Autonomous Agent (FalkorDB GraphRAG Pipeline)
-> Timestamp: {datetime.now(timezone.utc).isoformat()}
+> Generated by BusFactor Zero Autonomous Agent · Stored in FalkorDB as `AgentMemory`
 """
 
 
 # ---------------------------------------------------------------------------
-# GraphRAG retrieval — fetch PR summaries from FalkorDB
+# GraphRAG retrieval — fetch Module doc_summary + PR summaries from FalkorDB
 # ---------------------------------------------------------------------------
 
-def _retrieve_pr_context(module_name: str, unavailable_handle: str) -> list[dict]:
+def _retrieve_pr_context(module_name: str) -> tuple[str, list[dict]]:
     """
-    Retrieve PR technical summaries for the at-risk module via Cypher.
-    This is the 'Retrieval' step in the GraphRAG pipeline.
+    Retrieve module doc_summary and PR technical summaries via Cypher.
+    This forms the structured + unstructured retrieval step in GraphRAG.
     """
     graph = get_falkor_graph()
+
+    mod_res = graph.query(
+        "MATCH (m:Module {name: $module_name}) RETURN m.doc_summary AS doc_summary",
+        {"module_name": module_name},
+    )
+    mod_rows = _result_to_dicts(mod_res)
+    doc_summary = mod_rows[0].get("doc_summary", "") if mod_rows else ""
+
     cypher = """
     MATCH (pr:PullRequest)-[:MODIFIES]->(m:Module {name: $module_name})
     MATCH (author:Developer)-[:AUTHORED]->(pr)
@@ -157,30 +184,7 @@ def _retrieve_pr_context(module_name: str, unavailable_handle: str) -> list[dict
     LIMIT 6
     """.strip()
     result = graph.query(cypher, {"module_name": module_name})
-    rows = []
-    if result and result.result_set:
-        # Normalise header items: may be [type, name] pairs in falkordb >= 1.8.0
-        raw_headers = result.header
-        headers = []
-        for h in raw_headers:
-            if isinstance(h, (list, tuple)) and len(h) >= 2:
-                headers.append(h[1])
-            else:
-                headers.append(str(h))
-        for row in result.result_set:
-            record = {}
-            for i, h in enumerate(headers):
-                val = row[i]
-                if hasattr(val, "properties"):
-                    val = dict(val.properties)
-                elif isinstance(val, list):
-                    val = [
-                        dict(v.properties) if hasattr(v, "properties") else v
-                        for v in val
-                    ]
-                record[h] = val
-            rows.append(record)
-    return rows
+    return doc_summary, _result_to_dicts(result)
 
 
 # ---------------------------------------------------------------------------
@@ -191,33 +195,26 @@ def run_mitigation_agent(dev_handle: str) -> dict:
     """
     Full autonomous pipeline:
       1. Detect bus-factor bottlenecks (Q1)
-      2. Simulate developer unavailability — blast radius (Q2)
-      3. Recommend backup engineers for each at-risk module (Q3)
-      4. GraphRAG: retrieve PR context from FalkorDB
-      5. LLM: generate technical handoff packet
-      (Q4 — graph mutation — is called separately via /api/agent/mitigate)
-
-    Returns a structured result containing all query data + the handoff packet.
+      2. Simulate developer unavailability — multi-hop blast radius (Q2)
+      3. Recommend backup engineers for each compromised module (Q3)
+      4. GraphRAG: retrieve module docs + PR context from FalkorDB
+      5. LLM / Synthesizer: generate technical handoff packet per module
     """
     execution_log = []
     timestamp = datetime.now(timezone.utc).isoformat()
 
-    # --- Step 1: Bus factor detection ---
     print(f"\n🧠 Agent triggered for: {dev_handle}")
-    print("  Step 1/5: Detecting bus-factor bottlenecks...")
     bottleneck_data = detect_bus_factor_bottlenecks()
     execution_log.append({
-        "step": "detect_bus_factor_bottlenecks",
+        "step": "Q1 · detect_bus_factor_bottlenecks",
         "cypher": bottleneck_data["cypher"],
         "params": bottleneck_data["params"],
         "result_count": len(bottleneck_data["result"]),
     })
 
-    # --- Step 2: Blast radius ---
-    print(f"  Step 2/5: Simulating {dev_handle} unavailable...")
     blast_data = simulate_developer_unavailable(dev_handle)
     execution_log.append({
-        "step": "simulate_developer_unavailable",
+        "step": "Q2 · simulate_developer_unavailable",
         "cypher": blast_data["cypher"],
         "params": blast_data["params"],
         "result_count": len(blast_data["result"]),
@@ -229,44 +226,32 @@ def run_mitigation_agent(dev_handle: str) -> dict:
     blocked_features = blast_result.get("blocked_features", [])
     blast_radius_score = blast_result.get("blast_radius_score", 0)
 
-    # --- Step 3: Recommend backup for each at-risk module ---
-    print(f"  Step 3/5: Recommending backup engineers...")
     module_recommendations = {}
     for module_name in directly_compromised:
         rec_data = recommend_backup_engineer(module_name, dev_handle)
         module_recommendations[module_name] = rec_data["result"]
         execution_log.append({
-            "step": f"recommend_backup_engineer({module_name})",
+            "step": f"Q3 · recommend_backup_engineer ({module_name})",
             "cypher": rec_data["cypher"],
             "params": rec_data["params"],
             "result_count": len(rec_data["result"]),
         })
 
-    # --- Step 4: GraphRAG retrieval ---
-    print(f"  Step 4/5: Retrieving PR context from FalkorDB (GraphRAG)...")
-    all_pr_context = {}
-    for module_name in directly_compromised:
-        prs = _retrieve_pr_context(module_name, dev_handle)
-        all_pr_context[module_name] = prs
-
-    # --- Step 5: LLM handoff packet generation ---
-    print(f"  Step 5/5: Generating handoff packets via LLM...")
     handoff_packets = {}
-
     for module_name in directly_compromised:
+        doc_summary, pr_context = _retrieve_pr_context(module_name)
         recommendations = module_recommendations.get(module_name, [])
         top_backup = recommendations[0] if recommendations else None
-        pr_context = all_pr_context.get(module_name, [])
 
         pr_bullets = "\n".join(
-            f"- PR: [{p.get('title', '')}] by {p.get('author', '')} "
+            f"- PR {p.get('pr_id')}: [{p.get('title', '')}] by {p.get('author', '')} "
             f"({p.get('merged_days_ago', '?')} days ago)\n  Summary: {p.get('summary', '')[:300]}"
             for p in pr_context
         )
 
-        backup_name = top_backup["recommended_dev"] if top_backup else "No backup found"
-        backup_handle = top_backup["handle"] if top_backup else "N/A"
-        backup_reasons = ", ".join(top_backup.get("reasons", [])) if top_backup else ""
+        backup_name = top_backup["recommended_dev"] if top_backup else "Unassigned"
+        backup_handle = top_backup["handle"] if top_backup else ""
+        backup_reasons = top_backup.get("reasons", []) if top_backup else []
         proximity_score = top_backup.get("proximity_score", 0) if top_backup else 0
 
         prompt = f"""You are an autonomous engineering intelligence system called BusFactor Zero.
@@ -275,9 +260,10 @@ A critical bus-factor risk has been identified and you must generate a technical
 
 ## Situation
 Module: {module_name}
+Module Architecture Summary: {doc_summary}
 Unavailable Developer: {dev_handle}
 Recommended Backup: {backup_name} ({backup_handle})
-Backup Selection Reasons: {backup_reasons}
+Backup Selection Reasons: {', '.join(backup_reasons)}
 Graph Proximity Score: {proximity_score}
 
 ## Downstream Impact
@@ -286,29 +272,33 @@ Cascade Compromised (via DEPENDS_ON graph): {', '.join(cascade_compromised)}
 Blocked Client Features: {json.dumps(blocked_features, indent=2)}
 
 ## Technical Context Retrieved from FalkorDB Graph (GraphRAG)
-The following pull-requests touch {module_name} and provide the handoff context:
-
-{pr_bullets if pr_bullets else 'No recent PRs found — consult module doc_summary.'}
+{pr_bullets if pr_bullets else doc_summary}
 
 ## Your Task
-Generate a structured, actionable technical handoff briefing for {backup_name}.
-Include:
-1. A concise module architecture summary (based on the PR context above)
-2. Recent changes and active work items
-3. Known risks and failure modes
-4. Step-by-step onboarding checklist (5 items)
-5. Escalation contacts
-
-Be specific and technical. Reference actual PR titles from the context above.
+Generate a structured, actionable technical handoff briefing for {backup_name} covering:
+1. Concise module architecture summary
+2. Recent PR changes and active technical context
+3. Downstream cascade risks
+4. 5-step onboarding checklist
 """
-
         system = (
-            "You are an autonomous engineering intelligence agent. "
-            "Generate precise, technical handoff briefings for engineering teams. "
-            "Be specific, actionable, and reference the retrieved graph context."
+            "You are an autonomous engineering intelligence agent powered by FalkorDB. "
+            "Generate precise, technical handoff briefings referencing the retrieved graph context."
         )
+        meta = {
+            "mode": "handoff",
+            "module": module_name,
+            "doc_summary": doc_summary,
+            "unavailable_dev": dev_handle,
+            "backup_name": backup_name,
+            "backup_handle": backup_handle,
+            "backup_reasons": backup_reasons,
+            "proximity_score": proximity_score,
+            "cascade_compromised": cascade_compromised,
+            "prs": pr_context,
+        }
 
-        packet = _llm_generate(prompt, system)
+        packet = _llm_generate(prompt, system, meta)
         handoff_packets[module_name] = {
             "module": module_name,
             "backup_dev": backup_name,
@@ -316,8 +306,6 @@ Be specific and technical. Reference actual PR titles from the context above.
             "proximity_score": proximity_score,
             "packet": packet,
         }
-
-    print(f"  ✅ Agent completed. Blast radius: {blast_radius_score} modules.")
 
     return {
         "timestamp": timestamp,
@@ -335,10 +323,9 @@ Be specific and technical. Reference actual PR titles from the context above.
 
 def run_audit_agent() -> dict:
     """
-    Company-wide bus factor audit — runs Q1 and generates a risk report
+    Company-wide bus factor audit — runs Q1 and generates an executive risk report
     for all single-point-of-failure modules simultaneously.
     """
-    print("\n🔍 Running company-wide bus factor audit...")
     bottleneck_data = detect_bus_factor_bottlenecks()
     bottlenecks = bottleneck_data["result"]
 
@@ -355,21 +342,16 @@ def run_audit_agent() -> dict:
             "backup_candidates": rec_data["result"][:2],
         })
 
-    prompt = f"""You are BusFactor Zero, an autonomous company brain.
-
-A bus-factor audit has found {len(bottlenecks)} critical single-point-of-failure modules.
-
-Audit Results:
+    prompt = f"""You are BusFactor Zero, an autonomous company brain powered by FalkorDB.
+A bus-factor audit found {len(bottlenecks)} critical single-point-of-failure modules:
 {json.dumps(risk_report, indent=2)}
 
-Generate an executive-level risk summary with:
+Generate an executive risk summary with:
 1. Overall company bus-factor health score (0-100)
-2. Top 3 most critical risks ranked by revenue impact + deadline urgency
-3. Immediate actions recommended (next 48 hours)
-4. Strategic recommendations (next sprint)
+2. Top critical risks ranked by revenue impact + deadline urgency
+3. Immediate 48-hour mitigation plan
 """
-
-    summary = _llm_generate(prompt)
+    summary = _llm_generate(prompt, context_meta={"mode": "audit", "bottlenecks": bottlenecks})
 
     return {
         "bottlenecks": bottlenecks,
