@@ -8,7 +8,7 @@ LIVE DEMO : https://busfactor-zero.onrender.com
 
 ---
 
-## What is BusFactor Zero?
+## What is BusFactor Zero? 
 
 Every engineering organisation has a hidden **bus factor problem**: a handful of developers who are the *sole* experts for critical modules. If they go on leave, get sick, or switch jobs — entire product lines stall.
 
@@ -333,7 +333,7 @@ Expected output:
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Open your browser: **http://localhost:8000**
+Open your browser: **http://localhost:8000** | https://busfactor-zero.onrender.com
 
 ### 7. Optional: Ingest Real GitHub Data
 
