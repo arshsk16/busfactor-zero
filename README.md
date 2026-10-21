@@ -88,26 +88,36 @@ graph TD
 
 ### Q1 — Detect Bus Factor Bottlenecks
 
-Finds active Features whose required Modules have exactly one developer who has ever authored PRs on them.
+Finds active Features whose required Modules have exactly **one** PR author **and zero agent-assigned shadow maintainers** (bus factor = 1). Shadow assignments from Q4 immediately resolve bottlenecks once committed.
 
 ```cypher
 MATCH (f:Feature {status: 'in_progress'})-[:REQUIRES_MODULE]->(m:Module)
 MATCH (d:Developer)-[:AUTHORED]->(pr:PullRequest)-[:MODIFIES]->(m)
-WITH m, f, collect(DISTINCT d.handle) AS experts
-WHERE size(experts) = 1
+OPTIONAL MATCH (shadow:Developer)-[:SHADOW_ASSIGNED_TO]->(m)
+WITH m,
+     collect(DISTINCT d.handle) AS authors,
+     collect(DISTINCT shadow.handle) AS shadows,
+     collect(DISTINCT f.name) AS blocking_features,
+     min(f.deadline_days) AS min_deadline_days,
+     collect(DISTINCT f.revenue_impact) AS revenue_impacts
+WHERE size(authors) = 1 AND size(shadows) = 0
 RETURN m.name AS module,
        m.criticality AS criticality,
-       experts[0] AS sole_expert,
-       f.name AS blocking_feature,
-       f.deadline_days AS deadline_days,
-       f.revenue_impact AS revenue_impact
+       m.doc_summary AS doc_summary,
+       authors[0] AS sole_expert,
+       blocking_features[0] AS blocking_feature,
+       blocking_features AS all_blocking_features,
+       min_deadline_days AS deadline_days,
+       revenue_impacts[0] AS revenue_impact,
+       size(authors) AS bus_factor
 ORDER BY
   CASE m.criticality
     WHEN 'critical' THEN 0
     WHEN 'high' THEN 1
     WHEN 'medium' THEN 2
     ELSE 3
-  END ASC
+  END ASC,
+  min_deadline_days ASC
 ```
 
 **Why this needs FalkorDB:** Requires traversing Developer → PullRequest → Module → Feature in a single query, then aggregating unique authors per module. The `size(experts) = 1` filter on a graph-aggregated collection is native to property graph databases.
@@ -118,27 +128,35 @@ ORDER BY
 
 Multi-hop graph traversal calculating the organisational impact of a developer becoming unavailable. Traverses up to 3 hops on `DEPENDS_ON` edges to find cascading module risk.
 
+Traverses **both** downstream consumers (`<-[:DEPENDS_ON*1..3]-`) AND upstream integrations (`-[:DEPENDS_ON*1..2]->`) to capture the full organisational blast radius.
+
 ```cypher
 MATCH (d:Developer {handle: $dev_handle})
 MATCH (d)-[:AUTHORED]->(pr:PullRequest)-[:MODIFIES]->(direct_module:Module)
 WITH d, collect(DISTINCT direct_module) AS direct_modules
 UNWIND direct_modules AS dm
-OPTIONAL MATCH (dm)-[:DEPENDS_ON*1..3]->(downstream:Module)
-WITH d, direct_modules, collect(DISTINCT downstream) AS downstream_modules
+OPTIONAL MATCH (dependent:Module)-[:DEPENDS_ON*1..3]->(dm)
+WHERE NOT (dependent IN direct_modules)
+WITH d, direct_modules, collect(DISTINCT dependent) AS cascade_dependents
 UNWIND direct_modules AS dm2
-OPTIONAL MATCH (f:Feature)-[:REQUIRES_MODULE]->(dm2)
-WITH d, direct_modules, downstream_modules, collect(DISTINCT f) AS blocked_features
+OPTIONAL MATCH (dm2)-[:DEPENDS_ON*1..2]->(upstream:Module)
+WHERE NOT (upstream IN direct_modules) AND NOT (upstream IN cascade_dependents)
+WITH d, direct_modules, cascade_dependents, collect(DISTINCT upstream) AS upstream_deps
+WITH d, direct_modules, (cascade_dependents + upstream_deps) AS all_cascade
+UNWIND (direct_modules + all_cascade) AS impacted_mod
+OPTIONAL MATCH (f:Feature)-[:REQUIRES_MODULE]->(impacted_mod)
+WITH d, direct_modules, all_cascade, collect(DISTINCT f) AS blocked_features
 RETURN d.name AS developer,
        d.handle AS handle,
-       [m IN direct_modules | m.name] AS directly_compromised,
-       [m IN downstream_modules | m.name] AS cascade_compromised,
-       [feat IN blocked_features | {
+       [m IN direct_modules WHERE m IS NOT NULL | m.name] AS directly_compromised,
+       [m IN all_cascade WHERE m IS NOT NULL | m.name] AS cascade_compromised,
+       [feat IN blocked_features WHERE feat IS NOT NULL | {
            name: feat.name,
            revenue: feat.revenue_impact,
            deadline: feat.deadline_days,
            status: feat.status
        }] AS blocked_features,
-       size(direct_modules) + size(downstream_modules) AS blast_radius_score
+       size(direct_modules) + size(all_cascade) AS blast_radius_score
 ```
 
 **Why this needs FalkorDB:** Variable-length path traversal (`DEPENDS_ON*1..3`) is native to graph databases. Equivalent SQL requires 3 self-joins or a recursive CTE that breaks down with complex schemas.
@@ -149,27 +167,31 @@ RETURN d.name AS developer,
 
 Finds the best backup engineers by graph proximity — reviewers of PRs on the module score highest; authors of adjacent modules (via `DEPENDS_ON`) score next.
 
+Uses pure OpenCypher **scalar projections** to avoid null-map grouping issues. Weights: co-authored PRs on module (+4 pts), reviewed PRs on module (+3 pts), authored PRs on 1–2 hop DEPENDS_ON neighbours (+1 pt).
+
 ```cypher
 MATCH (m:Module {name: $module_name})
-OPTIONAL MATCH (reviewer:Developer)-[:REVIEWED]->(rpr:PullRequest)-[:MODIFIES]->(m)
-  WHERE reviewer.handle <> $unavailable_dev AND reviewer.status = 'active'
-WITH m, collect(DISTINCT {dev: reviewer, score: 3, reason: 'Reviewed PRs on this module'}) AS review_candidates
-OPTIONAL MATCH (m)-[:DEPENDS_ON*1..2]-(adjacent:Module)
-OPTIONAL MATCH (adjacent_author:Developer)-[:AUTHORED]->(apr:PullRequest)-[:MODIFIES]->(adjacent)
-  WHERE adjacent_author.handle <> $unavailable_dev AND adjacent_author.status = 'active'
-WITH m, review_candidates,
-     collect(DISTINCT {dev: adjacent_author, score: 1, reason: 'Authors adjacent modules'}) AS adjacent_candidates
-WITH m, review_candidates + adjacent_candidates AS all_candidates
-UNWIND all_candidates AS candidate
-WITH candidate.dev AS dev, sum(candidate.score) AS proximity_score,
-     collect(DISTINCT candidate.reason) AS reasons
-WHERE dev IS NOT NULL
-RETURN dev.name AS recommended_dev,
-       dev.handle AS handle,
-       dev.role AS role,
+MATCH (cand:Developer {status: 'active'})
+WHERE cand.handle <> $unavailable_dev
+OPTIONAL MATCH (cand)-[:REVIEWED]->(rpr:PullRequest)-[:MODIFIES]->(m)
+WITH m, cand, count(DISTINCT rpr) AS review_count
+OPTIONAL MATCH (m)-[:DEPENDS_ON*1..2]-(adj:Module)<-[:MODIFIES]-(apr:PullRequest)<-[:AUTHORED]-(cand)
+WHERE adj.name <> m.name
+WITH m, cand, review_count, count(DISTINCT apr) AS adjacent_pr_count, collect(DISTINCT adj.name) AS adj_modules
+OPTIONAL MATCH (cand)-[:AUTHORED]->(cpr:PullRequest)-[:MODIFIES]->(m)
+WITH cand, review_count, adjacent_pr_count, adj_modules, count(DISTINCT cpr) AS coauthor_count
+WITH cand,
+     (coauthor_count * 4) + (review_count * 3) + (adjacent_pr_count * 1) AS proximity_score,
+     (CASE WHEN coauthor_count > 0 THEN ['Co-authored PRs on this module'] ELSE [] END) +
+     (CASE WHEN review_count > 0 THEN ['Reviewed ' + toString(review_count) + ' PR(s) on this module'] ELSE [] END) +
+     (CASE WHEN adjacent_pr_count > 0 THEN ['Maintains adjacent modules: ' + coalesce(adj_modules[0], '')] ELSE [] END) AS reasons
+WHERE proximity_score > 0
+RETURN cand.name AS recommended_dev,
+       cand.handle AS handle,
+       cand.role AS role,
        proximity_score,
        reasons
-ORDER BY proximity_score DESC
+ORDER BY proximity_score DESC, cand.name ASC
 LIMIT 3
 ```
 
@@ -181,19 +203,21 @@ LIMIT 3
 
 Writes the agent's coordination decision permanently into FalkorDB: creates an `AgentMemory` node with the GraphRAG-generated handoff briefing, then creates `SHADOW_ASSIGNED_TO` and `MITIGATES_RISK_ON` edges.
 
+Pre-MATCHes both `Module` and `Developer` before `CREATE` to prevent dangling nodes if either lookup fails.
+
 ```cypher
+MATCH (m:Module {name: $module_name})
+MATCH (d:Developer {handle: $backup_dev_handle})
 CREATE (mem:AgentMemory {
     id: $memory_id,
     timestamp: $timestamp,
     action_type: 'handoff_briefing',
+    module_name: $module_name,
+    backup_handle: $backup_dev_handle,
     summary: $handoff_summary,
     confidence: $confidence
 })
-WITH mem
-MATCH (m:Module {name: $module_name})
 CREATE (mem)-[:MITIGATES_RISK_ON]->(m)
-WITH mem, m
-MATCH (d:Developer {handle: $backup_dev_handle})
 MERGE (d)-[r:SHADOW_ASSIGNED_TO {assigned_by_agent: true}]->(m)
 SET r.timestamp = $timestamp, r.memory_id = $memory_id
 RETURN mem.id AS memory_id,
@@ -308,15 +332,33 @@ Open your browser: **http://localhost:8000**
 
 ### 7. Optional: Ingest Real GitHub Data
 
-```bash
-# Via CLI
-python seed_graph.py --github falkordb/falkordb
+The ingestion engine partitions PRs into logical sub-modules based on title/body keywords, creates `DEPENDS_ON` edges between them, and synthesises `Feature` nodes so that Q1–Q3 immediately produce real bus-factor results for any public repo.
 
-# Via API
+```bash
+# Via CLI (appends to existing graph)
+python seed_graph.py --github arshsk16/cortex
+
+# Via API — replace existing graph with this repo (clear_existing defaults to true)
 curl -X POST http://localhost:8000/api/ingest-github \
   -H "Content-Type: application/json" \
-  -d '{"owner": "falkordb", "repo": "falkordb", "max_prs": 20}'
+  -d '{"owner": "arshsk16", "repo": "cortex", "max_prs": 20, "clear_existing": true}'
+
+# Append to existing graph without clearing
+curl -X POST http://localhost:8000/api/ingest-github \
+  -H "Content-Type: application/json" \
+  -d '{"owner": "FalkorDB", "repo": "falkordb-py", "max_prs": 20, "clear_existing": false}'
 ```
+
+**Sub-module classification keywords:**
+
+| Suffix | Matched keywords in PR title/body |
+|--------|----------------------------------|
+| `-auth` | auth, oauth, jwt, login, session, sso, token, saml, permission, rbac |
+| `-api` | api, route, endpoint, handler, middleware, gateway, proxy, rest, graphql |
+| `-cli` | cli, command, terminal, shell, script, argparse, click, typer |
+| `-testing` | test, spec, fixture, mock, pytest, jest, coverage, ci, lint |
+| `-infra` | deploy, docker, k8s, kubernetes, terraform, helm, release, build, pipeline |
+| `-core` | core, engine, base, model, schema, database, orm, redis, cache *(default)* |
 
 ### Using FalkorDB Cloud (instead of Docker)
 
@@ -402,14 +444,17 @@ The seeded graph contains:
 | Feature | Description |
 |---------|-------------|
 | **Live Graph Visualization** | Vis.js network with colour-coded nodes (Developer=green, Module=cyan, PR=violet, Feature=amber, AgentMemory=rose) and shaped by type |
-| **Bus Factor Scan** | One-click Q1 execution showing all bottleneck modules with criticality badges and revenue at risk |
+| **Bus Factor Scan** | One-click Q1 execution showing all bottleneck modules with criticality badges and revenue at risk. Clicking a card focuses the sole-expert node in the live graph. |
 | **Developer Leave Simulator** | Select any developer → triggers full 5-step agent pipeline |
-| **Blast Radius Panel** | Shows directly compromised modules + cascade via DEPENDS_ON*1..3 + blocked features |
+| **Blast Radius Panel** | Shows directly compromised modules + bidirectional cascade via DEPENDS_ON*1..3 + blocked features |
 | **Backup Recommendations** | Graph-ranked backup engineers with proximity scores and selection reasons |
 | **AI Handoff Packet** | LLM-generated technical onboarding document with architecture summary and checklist |
 | **Cypher Inspector** | Live panel showing the exact Cypher query executed at each step — syntax highlighted |
 | **One-Click Graph Mutation** | "Commit to FalkorDB" button writes AgentMemory + SHADOW_ASSIGNED_TO and refreshes the live graph |
 | **Graph Reseed** | Reset and repopulate the entire graph with one button click |
+| **Live GitHub Repo Ingest** | Enter any `owner/repo` (default: `arshsk16/cortex`). PRs are auto-classified into sub-modules (`{repo}-core`, `{repo}-api`, `{repo}-auth`, `{repo}-cli`, `{repo}-infra`) by title keyword matching. DEPENDS_ON edges and Feature nodes are synthesised automatically so Q1–Q3 produce real results immediately. A **"Replace synthetic graph"** checkbox (`clear_existing=true`, checked by default) wipes the existing graph first so only the ingested repo is shown. |
+| **Precision Graph Zoom Toolbar** | Floating toolbar in the bottom-right corner of the graph canvas: ➕ Zoom In, ➖ Zoom Out, ⊡ Fit All Nodes, 🎯 Focus Selected Node, ⚛ Physics On/Off toggle. Physics is automatically disabled after stabilisation to stop graph drift while preserving interactive node dragging. |
+| **Expand / Collapse Panels** | "⬡ Expand" button on the graph canvas hides the left sidebar (graph spans 9 of 12 columns). "⬡ Expand" on the right panel hides the center graph for a wider handoff packet view. |
 
 ---
 

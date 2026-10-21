@@ -106,81 +106,125 @@
 
 ### Q1 — Detect Bus Factor Bottlenecks
 
+Shadow-aware: requires `size(authors) = 1 AND size(shadows) = 0` so that a committed Q4 mitigation immediately clears the bottleneck.
+
 ```cypher
 MATCH (f:Feature {status: 'in_progress'})-[:REQUIRES_MODULE]->(m:Module)
 MATCH (d:Developer)-[:AUTHORED]->(pr:PullRequest)-[:MODIFIES]->(m)
-WITH m, f, collect(DISTINCT d.handle) AS experts
-WHERE size(experts) = 1
+OPTIONAL MATCH (shadow:Developer)-[:SHADOW_ASSIGNED_TO]->(m)
+WITH m,
+     collect(DISTINCT d.handle) AS authors,
+     collect(DISTINCT shadow.handle) AS shadows,
+     collect(DISTINCT f.name) AS blocking_features,
+     min(f.deadline_days) AS min_deadline_days,
+     collect(DISTINCT f.revenue_impact) AS revenue_impacts
+WHERE size(authors) = 1 AND size(shadows) = 0
 RETURN m.name AS module,
        m.criticality AS criticality,
-       experts[0] AS sole_expert,
-       f.name AS blocking_feature,
-       f.deadline_days AS deadline_days,
-       f.revenue_impact AS revenue_impact
-ORDER BY m.criticality DESC
+       m.doc_summary AS doc_summary,
+       authors[0] AS sole_expert,
+       blocking_features[0] AS blocking_feature,
+       blocking_features AS all_blocking_features,
+       min_deadline_days AS deadline_days,
+       revenue_impacts[0] AS revenue_impact,
+       size(authors) AS bus_factor
+ORDER BY
+  CASE m.criticality
+    WHEN 'critical' THEN 0
+    WHEN 'high' THEN 1
+    WHEN 'medium' THEN 2
+    ELSE 3
+  END ASC,
+  min_deadline_days ASC
 ```
 
 ### Q2 — Simulate Developer Unavailable (Blast Radius)
+
+Bidirectional cascade: finds services that depend on compromised modules (`<-[:DEPENDS_ON*1..3]-`) AND upstream modules the dev integrates with.
 
 ```cypher
 MATCH (d:Developer {handle: $dev_handle})
 MATCH (d)-[:AUTHORED]->(pr:PullRequest)-[:MODIFIES]->(direct_module:Module)
 WITH d, collect(DISTINCT direct_module) AS direct_modules
 UNWIND direct_modules AS dm
-OPTIONAL MATCH (dm)-[:DEPENDS_ON*1..3]->(downstream:Module)
-WITH d, direct_modules, collect(DISTINCT downstream) AS downstream_modules
+OPTIONAL MATCH (dependent:Module)-[:DEPENDS_ON*1..3]->(dm)
+WHERE NOT (dependent IN direct_modules)
+WITH d, direct_modules, collect(DISTINCT dependent) AS cascade_dependents
 UNWIND direct_modules AS dm2
-OPTIONAL MATCH (f:Feature)-[:REQUIRES_MODULE]->(dm2)
-WITH d, direct_modules, downstream_modules, collect(DISTINCT f) AS blocked_features
+OPTIONAL MATCH (dm2)-[:DEPENDS_ON*1..2]->(upstream:Module)
+WHERE NOT (upstream IN direct_modules) AND NOT (upstream IN cascade_dependents)
+WITH d, direct_modules, cascade_dependents, collect(DISTINCT upstream) AS upstream_deps
+WITH d, direct_modules, (cascade_dependents + upstream_deps) AS all_cascade
+UNWIND (direct_modules + all_cascade) AS impacted_mod
+OPTIONAL MATCH (f:Feature)-[:REQUIRES_MODULE]->(impacted_mod)
+WITH d, direct_modules, all_cascade, collect(DISTINCT f) AS blocked_features
 RETURN d.name AS developer,
-       [m IN direct_modules | m.name] AS directly_compromised,
-       [m IN downstream_modules | m.name] AS cascade_compromised,
-       [feat IN blocked_features | {name: feat.name, revenue: feat.revenue_impact, deadline: feat.deadline_days}] AS blocked_features,
-       size(direct_modules) + size(downstream_modules) AS blast_radius_score
+       d.handle AS handle,
+       [m IN direct_modules WHERE m IS NOT NULL | m.name] AS directly_compromised,
+       [m IN all_cascade WHERE m IS NOT NULL | m.name] AS cascade_compromised,
+       [feat IN blocked_features WHERE feat IS NOT NULL | {
+           name: feat.name,
+           revenue: feat.revenue_impact,
+           deadline: feat.deadline_days,
+           status: feat.status
+       }] AS blocked_features,
+       size(direct_modules) + size(all_cascade) AS blast_radius_score
 ```
 
 ### Q3 — Recommend Backup Engineer
 
+Scalar projections with weighted proximity scoring: co-authored PRs on module (+4), reviewed PRs (+3), authored PRs on adjacent modules via DEPENDS_ON (+1).
+
 ```cypher
 MATCH (m:Module {name: $module_name})
-OPTIONAL MATCH (reviewer:Developer)-[:REVIEWED]->(pr:PullRequest)-[:MODIFIES]->(m)
-  WHERE reviewer.handle <> $unavailable_dev AND reviewer.status = 'active'
-WITH m, collect(DISTINCT {dev: reviewer, score: 3, reason: 'Reviewed PRs on this module'}) AS review_candidates
-OPTIONAL MATCH (m)-[:DEPENDS_ON*1..2]-(adjacent:Module)
-OPTIONAL MATCH (adjacent_author:Developer)-[:AUTHORED]->(apr:PullRequest)-[:MODIFIES]->(adjacent)
-  WHERE adjacent_author.handle <> $unavailable_dev AND adjacent_author.status = 'active'
-WITH m, review_candidates, collect(DISTINCT {dev: adjacent_author, score: 1, reason: 'Authors adjacent modules'}) AS adjacent_candidates
-WITH m, review_candidates + adjacent_candidates AS all_candidates
-UNWIND all_candidates AS candidate
-WITH candidate.dev AS dev, sum(candidate.score) AS proximity_score, collect(candidate.reason) AS reasons
-WHERE dev IS NOT NULL
-RETURN dev.name AS recommended_dev,
-       dev.handle AS handle,
-       dev.role AS role,
+MATCH (cand:Developer {status: 'active'})
+WHERE cand.handle <> $unavailable_dev
+OPTIONAL MATCH (cand)-[:REVIEWED]->(rpr:PullRequest)-[:MODIFIES]->(m)
+WITH m, cand, count(DISTINCT rpr) AS review_count
+OPTIONAL MATCH (m)-[:DEPENDS_ON*1..2]-(adj:Module)<-[:MODIFIES]-(apr:PullRequest)<-[:AUTHORED]-(cand)
+WHERE adj.name <> m.name
+WITH m, cand, review_count, count(DISTINCT apr) AS adjacent_pr_count, collect(DISTINCT adj.name) AS adj_modules
+OPTIONAL MATCH (cand)-[:AUTHORED]->(cpr:PullRequest)-[:MODIFIES]->(m)
+WITH cand, review_count, adjacent_pr_count, adj_modules, count(DISTINCT cpr) AS coauthor_count
+WITH cand,
+     (coauthor_count * 4) + (review_count * 3) + (adjacent_pr_count * 1) AS proximity_score,
+     (CASE WHEN coauthor_count > 0 THEN ['Co-authored PRs on this module'] ELSE [] END) +
+     (CASE WHEN review_count > 0 THEN ['Reviewed ' + toString(review_count) + ' PR(s) on this module'] ELSE [] END) +
+     (CASE WHEN adjacent_pr_count > 0 THEN ['Maintains adjacent modules: ' + coalesce(adj_modules[0], '')] ELSE [] END) AS reasons
+WHERE proximity_score > 0
+RETURN cand.name AS recommended_dev,
+       cand.handle AS handle,
+       cand.role AS role,
        proximity_score,
        reasons
-ORDER BY proximity_score DESC
+ORDER BY proximity_score DESC, cand.name ASC
 LIMIT 3
 ```
 
 ### Q4 — Commit Agent Handoff Memory (Graph Mutation)
 
+Pre-MATCHes `Module` and `Developer` before `CREATE` to prevent dangling nodes. Stores the full handoff briefing as graph-native memory.
+
 ```cypher
+MATCH (m:Module {name: $module_name})
+MATCH (d:Developer {handle: $backup_dev_handle})
 CREATE (mem:AgentMemory {
     id: $memory_id,
     timestamp: $timestamp,
     action_type: 'handoff_briefing',
+    module_name: $module_name,
+    backup_handle: $backup_dev_handle,
     summary: $handoff_summary,
     confidence: $confidence
 })
-WITH mem
-MATCH (m:Module {name: $module_name})
 CREATE (mem)-[:MITIGATES_RISK_ON]->(m)
-WITH mem, m
-MATCH (d:Developer {handle: $backup_dev_handle})
 MERGE (d)-[r:SHADOW_ASSIGNED_TO {assigned_by_agent: true}]->(m)
 SET r.timestamp = $timestamp, r.memory_id = $memory_id
-RETURN mem.id AS memory_id, d.name AS backup_dev, m.name AS module
+RETURN mem.id AS memory_id,
+       d.name AS backup_dev,
+       d.handle AS backup_handle,
+       m.name AS module,
+       mem.timestamp AS committed_at
 ```
 
 ---
@@ -190,12 +234,15 @@ RETURN mem.id AS memory_id, d.name AS backup_dev, m.name AS module
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Serves static/index.html dashboard |
+| GET | `/api/health` | FalkorDB connectivity + node count |
 | GET | `/api/graph` | Returns all nodes + edges for Vis.js |
 | GET | `/api/bottlenecks` | Runs Q1 — Bus Factor detection |
+| GET | `/api/audit` | Company-wide risk audit + executive summary |
+| GET | `/api/developers` | Developer list for UI selector |
 | POST | `/api/simulate-leave` | Runs Q2 + Q3 + GraphRAG handoff |
 | POST | `/api/agent/mitigate` | Runs Q4 — commits AgentMemory |
 | POST | `/api/seed` | Resets and re-seeds FalkorDB graph |
-| POST | `/api/ingest-github` | Optional GitHub repo ingestion |
+| POST | `/api/ingest-github` | GitHub repo ingestion with sub-module partitioning (`clear_existing: bool`) |
 
 ---
 
