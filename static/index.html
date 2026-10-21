@@ -97,11 +97,13 @@
       box-shadow: 0 0 20px rgba(244, 63, 94, 0.25);
     }
 
-    /* Graph container */
+    /* Graph container — strictly positioned to fill 100% of wrapper */
     #graph-canvas {
-      width: 100%;
-      height: 100%;
-      background: transparent;
+      position: absolute;
+      inset: 0;
+      width: 100% !important;
+      height: 100% !important;
+      background: radial-gradient(circle at center, #0c1624 0%, #060a10 100%);
     }
 
     /* Cypher inspector */
@@ -376,16 +378,16 @@
       display: none !important;
     }
 
-    /* Main grid container — allow vertical scroll on small screens */
+    /* Main grid container — full viewport height stretch */
     #main-grid {
       display: grid;
       grid-template-columns: repeat(12, minmax(0, 1fr));
       gap: 1.25rem;
       min-height: calc(100vh - 60px);
-      padding: 1.5rem;
-      max-width: 1600px;
+      padding: 1.25rem 1.5rem;
+      max-width: 1700px;
       margin: 0 auto;
-      align-items: start;
+      align-items: stretch;
     }
 
     #left-sidebar {
@@ -394,9 +396,10 @@
       flex-direction: column;
       gap: 1rem;
       overflow-y: auto;
-      max-height: calc(100vh - 80px);
+      max-height: calc(100vh - 84px);
       position: sticky;
-      top: 64px;
+      top: 72px;
+      padding-right: 2px;
     }
 
     #center-panel {
@@ -404,6 +407,10 @@
       display: flex;
       flex-direction: column;
       gap: 1rem;
+      height: calc(100vh - 84px);
+      min-height: 640px;
+      position: sticky;
+      top: 72px;
     }
 
     #right-panel {
@@ -412,19 +419,20 @@
       flex-direction: column;
       gap: 1rem;
       overflow-y: auto;
-      max-height: calc(100vh - 80px);
+      max-height: calc(100vh - 84px);
       position: sticky;
-      top: 64px;
+      top: 72px;
+      padding-right: 2px;
     }
 
-    /* Graph canvas wrapper */
+    /* Graph canvas wrapper — takes all remaining vertical height in center column */
     #graph-wrapper {
       position: relative;
       border-radius: 0.75rem;
       overflow: hidden;
-      min-height: 460px;
-      height: 100%;
-      flex: 1;
+      flex: 1 1 auto;
+      min-height: 520px;
+      width: 100%;
     }
 
     /* GitHub ingest checkbox */
@@ -573,7 +581,7 @@
             ⬡ Expand
           </button>
         </div>
-        <div id="graph-canvas" style="height: 100%; padding-top: 44px;"></div>
+        <div id="graph-canvas"></div>
         <div id="graph-loader" class="absolute inset-0 flex items-center justify-center bg-surface-900/80 z-20">
           <div class="text-center">
             <div class="loader mx-auto mb-3"></div>
@@ -837,6 +845,9 @@
           stabilization: { iterations: 150, updateInterval: 25 },
           barnesHut: { gravitationalConstant: -6000, centralGravity: 0.3, springLength: 160, springConstant: 0.04, damping: 0.09 },
         },
+        width: '100%',
+        height: '100%',
+        autoResize: true,
         interaction: { hover: true, zoomView: true, dragNodes: true, tooltipDelay: 200, navigationButtons: false },
         layout: { improvedLayout: true },
       };
@@ -977,8 +988,14 @@
         left.classList.remove('panel-hidden');
         btn.textContent = '⬡ Expand';
       }
-      // Redraw graph after layout change
-      setTimeout(() => { if (network) network.redraw(); }, 100);
+      // Redraw & refit graph after layout change so it fills the expanded space
+      setTimeout(() => {
+        if (network) {
+          network.setSize('100%', '100%');
+          network.redraw();
+          network.fit({ animation: { duration: 350, easingFunction: 'easeInOutQuad' } });
+        }
+      }, 120);
     }
 
     function toggleExpandRight() {
