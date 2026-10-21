@@ -298,7 +298,9 @@ Edit `.env`:
 ```env
 FALKORDB_HOST=localhost
 FALKORDB_PORT=6379
+FALKORDB_USERNAME=
 FALKORDB_PASSWORD=
+FALKORDB_SSL=false
 
 # Optional — app works without a key using the fallback synthesizer
 OPENAI_API_KEY=sk-...
@@ -365,7 +367,9 @@ curl -X POST http://localhost:8000/api/ingest-github \
 ```env
 FALKORDB_HOST=redis-XXXXX.c1.us-east-1-2.ec2.cloud.redislabs.com
 FALKORDB_PORT=12345
+FALKORDB_USERNAME=default
 FALKORDB_PASSWORD=your_password_here
+FALKORDB_SSL=true
 ```
 
 ---
