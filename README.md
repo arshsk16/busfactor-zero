@@ -1,4 +1,5 @@
-# BusFactor Zero                                             LIVE DEMO:https://busfactor-zero.onrender.com
+# BusFactor Zero                                             
+LIVE DEMO : https://busfactor-zero.onrender.com
 
 ## Autonomous Company Brain & Engineering Bottleneck GraphRAG Agent
 
