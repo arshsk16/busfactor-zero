@@ -91,8 +91,7 @@ def _fallback_synthesizer(prompt: str, meta: dict) -> str:
     if meta.get("mode") == "audit":
         bottlenecks = meta.get("bottlenecks", [])
         health_score = max(15, 100 - (len(bottlenecks) * 18))
-        top_items = "
-".join(
+        top_items = "\n".join(
             f"- **`{b['module']}`** ({b['criticality'].upper()}) — Sole Expert: `{b['sole_expert']}` | "
             f"Blocks: *{b['blocking_feature']}* ({b['revenue_impact']}, {b['deadline_days']}d deadline)"
             for b in bottlenecks[:4]
@@ -121,10 +120,10 @@ def _fallback_synthesizer(prompt: str, meta: dict) -> str:
     prs = meta.get("prs", [])
 
     if prs:
-        pr_section = "
-".join(
-            f"- **{p.get('pr_id', 'PR')} — {p.get('title', '')}** *(merged {p.get('merged_days_ago', '?')}d ago by {p.get('author', developer)}; reviewed by {', '.join(p.get('reviewers', [])) or 'team'})*
-"
+        pr_section = "\n".join(
+            f"- **{p.get('pr_id', 'PR')} — {p.get('title', '')}**"
+            f" *(merged {p.get('merged_days_ago', '?')}d ago by {p.get('author', developer)};"
+            f" reviewed by {', '.join(p.get('reviewers', [])) or 'team'})*\n"
             f"  {p.get('summary', '')}"
             for p in prs[:4]
         )
