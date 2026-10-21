@@ -301,6 +301,7 @@ FALKORDB_PORT=6379
 FALKORDB_USERNAME=
 FALKORDB_PASSWORD=
 FALKORDB_SSL=false
+FALKORDB_GRAPH=CompanyBrain
 
 # Optional — app works without a key using the fallback synthesizer
 OPENAI_API_KEY=sk-...
@@ -370,6 +371,7 @@ FALKORDB_PORT=12345
 FALKORDB_USERNAME=default
 FALKORDB_PASSWORD=your_password_here
 FALKORDB_SSL=true
+FALKORDB_GRAPH=CompanyBrain
 ```
 
 ---

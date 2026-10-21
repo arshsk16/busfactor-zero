@@ -100,13 +100,14 @@ async def health_check():
             password=os.getenv("FALKORDB_PASSWORD") or None,
             ssl=os.getenv("FALKORDB_SSL", "false").lower() == "true",
         )
-        graph = db.select_graph("CompanyBrain")
+        graph_name = os.getenv("FALKORDB_GRAPH", "CompanyBrain")
+        graph = db.select_graph(graph_name)
         result = graph.query("MATCH (n) RETURN count(n) AS total LIMIT 1")
         total = result.result_set[0][0] if result.result_set else 0
         return {
             "status": "healthy",
             "falkordb": "connected",
-            "graph": "CompanyBrain",
+            "graph": graph_name,
             "node_count": total,
         }
     except Exception as e:

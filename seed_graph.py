@@ -20,6 +20,9 @@ from falkordb import FalkorDB
 
 load_dotenv()
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 # ---------------------------------------------------------------------------
 # Connection
 # ---------------------------------------------------------------------------
@@ -35,7 +38,7 @@ def get_db() -> FalkorDB:
 
 
 def get_graph(db: FalkorDB):
-    return db.select_graph("CompanyBrain")
+    return db.select_graph(os.getenv("FALKORDB_GRAPH", "CompanyBrain"))
 
 
 # ---------------------------------------------------------------------------

@@ -30,7 +30,7 @@ def get_graph():
         password=os.getenv("FALKORDB_PASSWORD") or None,
         ssl=os.getenv("FALKORDB_SSL", "false").lower() == "true",
     )
-    return db.select_graph("CompanyBrain")
+    return db.select_graph(os.getenv("FALKORDB_GRAPH", "CompanyBrain"))
 
 
 def _result_to_dicts(result) -> list[dict]:
