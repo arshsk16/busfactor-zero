@@ -1,14 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BusFactor Zero — Autonomous Company Brain</title>
-  <meta name="description" content="Autonomous GraphRAG agent for detecting engineering bus-factor bottlenecks, simulating blast radius, and generating AI-powered knowledge handoff packets — powered by FalkorDB." />
+  <meta name="description"
+    content="Autonomous GraphRAG agent for detecting engineering bus-factor bottlenecks, simulating blast radius, and generating AI-powered knowledge handoff packets — powered by FalkorDB." />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
 
   <!-- Vis.js network -->
   <script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
@@ -23,9 +27,9 @@
         extend: {
           fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
           colors: {
-            brand: { 50:'#eef9f4', 100:'#d6f1e4', 200:'#b0e3cc', 300:'#7dcfac', 400:'#4cb488', 500:'#2d9b6e', 600:'#217c58', 700:'#1c6347', 800:'#194f3a', 900:'#164131' },
-            surface: { 900:'#080d13', 800:'#0d1520', 700:'#121e2e', 600:'#182540', 500:'#1e2f50' },
-            accent: { cyan:'#22d3ee', violet:'#a78bfa', amber:'#f59e0b', rose:'#f43f5e', emerald:'#10b981' },
+            brand: { 50: '#eef9f4', 100: '#d6f1e4', 200: '#b0e3cc', 300: '#7dcfac', 400: '#4cb488', 500: '#2d9b6e', 600: '#217c58', 700: '#1c6347', 800: '#194f3a', 900: '#164131' },
+            surface: { 900: '#080d13', 800: '#0d1520', 700: '#121e2e', 600: '#182540', 500: '#1e2f50' },
+            accent: { cyan: '#22d3ee', violet: '#a78bfa', amber: '#f59e0b', rose: '#f43f5e', emerald: '#10b981' },
           },
           animation: {
             'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -42,13 +46,36 @@
   </script>
 
   <style>
-    * { box-sizing: border-box; }
-    body { background: #080d13; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      background: #080d13;
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      overflow-y: auto;
+    }
 
     /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0d1520; }
-    ::-webkit-scrollbar-thumb { background: #2d9b6e; border-radius: 3px; }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0d1520;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #2d9b6e;
+      border-radius: 3px;
+    }
 
     /* Glass card */
     .glass {
@@ -58,9 +85,17 @@
     }
 
     /* Glow effects */
-    .glow-green { box-shadow: 0 0 20px rgba(45, 155, 110, 0.25), 0 0 60px rgba(45, 155, 110, 0.08); }
-    .glow-cyan  { box-shadow: 0 0 20px rgba(34, 211, 238, 0.25); }
-    .glow-rose  { box-shadow: 0 0 20px rgba(244, 63, 94, 0.25); }
+    .glow-green {
+      box-shadow: 0 0 20px rgba(45, 155, 110, 0.25), 0 0 60px rgba(45, 155, 110, 0.08);
+    }
+
+    .glow-cyan {
+      box-shadow: 0 0 20px rgba(34, 211, 238, 0.25);
+    }
+
+    .glow-rose {
+      box-shadow: 0 0 20px rgba(244, 63, 94, 0.25);
+    }
 
     /* Graph container */
     #graph-canvas {
@@ -81,31 +116,84 @@
       white-space: pre-wrap;
       word-break: break-word;
       color: #a5f3d0;
-      max-height: 300px;
+      max-height: 260px;
       overflow-y: auto;
+      overflow-x: auto;
     }
 
     /* Keyword highlighting */
-    .kw-match { color: #a78bfa; }
-    .kw-return { color: #22d3ee; }
-    .kw-where  { color: #f59e0b; }
-    .kw-create { color: #f43f5e; }
-    .kw-merge  { color: #fb923c; }
-    .kw-with   { color: #34d399; }
+    .kw-match {
+      color: #a78bfa;
+    }
+
+    .kw-return {
+      color: #22d3ee;
+    }
+
+    .kw-where {
+      color: #f59e0b;
+    }
+
+    .kw-create {
+      color: #f43f5e;
+    }
+
+    .kw-merge {
+      color: #fb923c;
+    }
+
+    .kw-with {
+      color: #34d399;
+    }
 
     /* Status badge */
-    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
-    .badge-critical { background: rgba(244,63,94,0.15); color: #f43f5e; border: 1px solid rgba(244,63,94,0.3); }
-    .badge-high     { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
-    .badge-medium   { background: rgba(34,211,238,0.12); color: #22d3ee; border: 1px solid rgba(34,211,238,0.25); }
-    .badge-active   { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-critical {
+      background: rgba(244, 63, 94, 0.15);
+      color: #f43f5e;
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .badge-high {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .badge-medium {
+      background: rgba(34, 211, 238, 0.12);
+      color: #22d3ee;
+      border: 1px solid rgba(34, 211, 238, 0.25);
+    }
+
+    .badge-active {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
 
     /* Score ring */
     .score-ring {
-      width: 72px; height: 72px; border-radius: 50%;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
       border: 3px solid;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px; font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      flex-shrink: 0;
     }
 
     /* Animated gradient heading */
@@ -124,56 +212,247 @@
     }
 
     /* Node legend */
-    .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
 
     /* Loader */
     .loader {
-      width: 20px; height: 20px;
-      border: 2px solid rgba(45,155,110,0.3);
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(45, 155, 110, 0.3);
       border-top-color: #2d9b6e;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       display: inline-block;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
 
     /* Packet markdown */
-    .packet-content h2, .packet-content h3 { color: #a5f3d0; font-weight: 700; margin: 12px 0 6px; }
-    .packet-content p  { color: #94a3b8; line-height: 1.7; margin: 6px 0; }
-    .packet-content ul { list-style: disc; padding-left: 20px; color: #94a3b8; }
-    .packet-content li { margin: 4px 0; }
-    .packet-content code { background: rgba(45,155,110,0.15); color: #4cb488; padding: 1px 6px; border-radius: 4px; font-family: monospace; }
-    .packet-content strong { color: #e2e8f0; }
-    .packet-content blockquote { border-left: 3px solid #2d9b6e; padding-left: 12px; color: #64748b; font-style: italic; }
+    .packet-content h2,
+    .packet-content h3 {
+      color: #a5f3d0;
+      font-weight: 700;
+      margin: 12px 0 6px;
+    }
+
+    .packet-content p {
+      color: #94a3b8;
+      line-height: 1.7;
+      margin: 6px 0;
+    }
+
+    .packet-content ul {
+      list-style: disc;
+      padding-left: 20px;
+      color: #94a3b8;
+    }
+
+    .packet-content li {
+      margin: 4px 0;
+    }
+
+    .packet-content code {
+      background: rgba(45, 155, 110, 0.15);
+      color: #4cb488;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    .packet-content strong {
+      color: #e2e8f0;
+    }
+
+    .packet-content blockquote {
+      border-left: 3px solid #2d9b6e;
+      padding-left: 12px;
+      color: #64748b;
+      font-style: italic;
+    }
 
     /* Scrollable sections */
-    .scroll-panel { max-height: 420px; overflow-y: auto; }
+    .scroll-panel {
+      max-height: 420px;
+      overflow-y: auto;
+      overflow-x: auto;
+    }
 
     /* Pulse dot */
     .pulse-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: #10b981;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
       animation: pulseDot 2s ease-in-out infinite;
+      flex-shrink: 0;
     }
+
     @keyframes pulseDot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(1.4); }
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.5;
+        transform: scale(1.4);
+      }
+    }
+
+    /* Graph zoom toolbar */
+    .graph-toolbar {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .graph-toolbar button {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(13, 21, 32, 0.9);
+      border: 1px solid rgba(45, 155, 110, 0.35);
+      color: #4cb488;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      backdrop-filter: blur(8px);
+    }
+
+    .graph-toolbar button:hover {
+      background: rgba(45, 155, 110, 0.2);
+      border-color: #2d9b6e;
+      color: #a5f3d0;
+    }
+
+    .graph-toolbar button.active {
+      background: rgba(45, 155, 110, 0.3);
+      border-color: #4cb488;
+    }
+
+    /* Expand/Collapse panel buttons */
+    .expand-btn {
+      padding: 2px 8px;
+      font-size: 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(45, 155, 110, 0.3);
+      color: #4cb488;
+      cursor: pointer;
+      background: transparent;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .expand-btn:hover {
+      background: rgba(45, 155, 110, 0.15);
+    }
+
+    /* Expanded state classes */
+    .panel-expanded-center {
+      grid-column: span 9 !important;
+    }
+
+    .panel-expanded-right {
+      grid-column: span 7 !important;
+    }
+
+    .panel-hidden {
+      display: none !important;
+    }
+
+    /* Main grid container — allow vertical scroll on small screens */
+    #main-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 1.25rem;
+      min-height: calc(100vh - 60px);
+      padding: 1.5rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      align-items: start;
+    }
+
+    #left-sidebar {
+      grid-column: span 3;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      overflow-y: auto;
+      max-height: calc(100vh - 80px);
+      position: sticky;
+      top: 64px;
+    }
+
+    #center-panel {
+      grid-column: span 5;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    #right-panel {
+      grid-column: span 4;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      overflow-y: auto;
+      max-height: calc(100vh - 80px);
+      position: sticky;
+      top: 64px;
+    }
+
+    /* Graph canvas wrapper */
+    #graph-wrapper {
+      position: relative;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      min-height: 460px;
+      height: 100%;
+      flex: 1;
+    }
+
+    /* GitHub ingest checkbox */
+    .gh-checkbox {
+      width: 14px;
+      height: 14px;
+      accent-color: #a78bfa;
+      cursor: pointer;
+      flex-shrink: 0;
     }
   </style>
 </head>
 
-<body class="dark min-h-screen">
+<body class="dark">
 
   <!-- ===== HEADER ===== -->
   <header class="sticky top-0 z-50 glass border-b border-brand-800/30">
     <div class="max-w-[1600px] mx-auto px-6 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-accent-cyan flex items-center justify-center text-white font-bold text-sm">B0</div>
+        <div
+          class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-accent-cyan flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+          B0</div>
         <div>
           <h1 class="text-base font-bold gradient-text tracking-tight">BusFactor Zero</h1>
           <p class="text-xs text-slate-500">Autonomous Company Brain · FalkorDB GraphRAG</p>
         </div>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 flex-wrap">
         <div id="health-indicator" class="flex items-center gap-2 text-xs text-slate-500">
           <div class="pulse-dot"></div>
           <span id="health-text">Connecting...</span>
@@ -182,7 +461,7 @@
           class="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-accent-cyan/40 text-accent-cyan hover:bg-accent-cyan/10 transition-all duration-200 flex items-center gap-1.5">
           <span>📊</span> Executive Audit
         </button>
-        <button id="seed-btn" onclick="seedGraph()" 
+        <button id="seed-btn" onclick="seedGraph()"
           class="px-4 py-1.5 text-xs font-semibold rounded-lg border border-brand-600/40 text-brand-400 hover:bg-brand-900/40 hover:border-brand-500 transition-all duration-200 flex items-center gap-2">
           <span>⚡</span> Reseed Graph
         </button>
@@ -191,10 +470,10 @@
   </header>
 
   <!-- ===== MAIN LAYOUT ===== -->
-  <div class="max-w-[1600px] mx-auto px-6 py-6 grid grid-cols-12 gap-5" style="height: calc(100vh - 60px);">
+  <div id="main-grid">
 
     <!-- LEFT SIDEBAR -->
-    <aside class="col-span-3 flex flex-col gap-4 overflow-y-auto">
+    <aside id="left-sidebar">
 
       <!-- Bus Factor Scan -->
       <div class="glass rounded-xl p-4 glow-green">
@@ -235,10 +514,14 @@
           <span>🐙</span> Live GitHub Repo Ingest
         </h2>
         <div class="flex gap-2 mb-2">
-          <input id="gh-repo-input" type="text" placeholder="owner/repo (e.g. tiangolo/fastapi)"
-            value="FalkorDB/falkordb-py"
+          <input id="gh-repo-input" type="text" placeholder="owner/repo"
+            value="arshsk16/cortex"
             class="w-full bg-surface-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-accent-violet" />
         </div>
+        <label class="flex items-center gap-2 text-xs text-slate-400 mb-2 cursor-pointer select-none">
+          <input type="checkbox" id="gh-clear-checkbox" class="gh-checkbox" checked />
+          Replace synthetic graph with this repo
+        </label>
         <button id="gh-ingest-btn" onclick="ingestGitHubRepo()"
           class="w-full py-1.5 text-xs font-semibold rounded-lg bg-accent-violet/20 border border-accent-violet/40 text-accent-violet hover:bg-accent-violet/30 transition-all flex items-center justify-center gap-1.5">
           <span>⬇</span> Ingest Public PRs into FalkorDB
@@ -269,28 +552,42 @@
     </aside>
 
     <!-- CENTER: GRAPH -->
-    <main class="col-span-6 flex flex-col gap-4">
+    <main id="center-panel">
 
       <!-- Graph Visualization -->
-      <div class="glass rounded-xl flex-1 relative overflow-hidden" style="min-height: 420px;">
+      <div id="graph-wrapper" class="glass flex flex-col">
         <div class="absolute top-3 left-4 z-10 flex items-center gap-3">
           <span class="text-xs font-semibold text-brand-400 uppercase tracking-wider">Live Graph · CompanyBrain</span>
           <span id="node-count" class="text-xs text-slate-500"></span>
         </div>
-        <div class="absolute top-3 right-4 z-10 flex gap-2">
-          <button onclick="refreshGraph()" class="px-2 py-1 text-xs rounded border border-slate-700 text-slate-400 hover:border-brand-500 hover:text-brand-400 transition-all">
+        <div class="absolute top-3 right-4 z-10 flex gap-2 items-center">
+          <button onclick="refreshGraph()"
+            class="px-2 py-1 text-xs rounded border border-slate-700 text-slate-400 hover:border-brand-500 hover:text-brand-400 transition-all">
             ↻ Refresh
           </button>
-          <button onclick="fitGraph()" class="px-2 py-1 text-xs rounded border border-slate-700 text-slate-400 hover:border-brand-500 hover:text-brand-400 transition-all">
+          <button onclick="fitGraph()"
+            class="px-2 py-1 text-xs rounded border border-slate-700 text-slate-400 hover:border-brand-500 hover:text-brand-400 transition-all">
             ⊡ Fit
           </button>
+          <button onclick="toggleExpandCenter()" id="expand-center-btn" class="expand-btn">
+            ⬡ Expand
+          </button>
         </div>
-        <div id="graph-canvas" style="height: 100%; padding-top: 40px;"></div>
+        <div id="graph-canvas" style="height: 100%; padding-top: 44px;"></div>
         <div id="graph-loader" class="absolute inset-0 flex items-center justify-center bg-surface-900/80 z-20">
           <div class="text-center">
             <div class="loader mx-auto mb-3"></div>
             <p class="text-sm text-slate-400">Loading graph from FalkorDB...</p>
           </div>
+        </div>
+
+        <!-- Floating Zoom Toolbar -->
+        <div class="graph-toolbar">
+          <button onclick="zoomIn()" title="Zoom In">➕</button>
+          <button onclick="zoomOut()" title="Zoom Out">➖</button>
+          <button onclick="fitGraph()" title="Fit All Nodes">⊡</button>
+          <button onclick="focusSelected()" id="focus-btn" title="Focus Selected Node">🎯</button>
+          <button onclick="togglePhysics()" id="physics-btn" class="active" title="Physics On/Off">⚛</button>
         </div>
       </div>
 
@@ -317,7 +614,7 @@
     </main>
 
     <!-- RIGHT PANEL -->
-    <aside class="col-span-3 flex flex-col gap-4 overflow-y-auto">
+    <aside id="right-panel">
 
       <!-- Cypher Execution Inspector -->
       <div class="glass rounded-xl p-4">
@@ -325,22 +622,31 @@
           <h2 class="text-sm font-semibold text-accent-cyan flex items-center gap-2">
             <span>🔍</span> Cypher Inspector
           </h2>
-          <span id="cypher-label" class="badge badge-medium text-xs">—</span>
+          <div class="flex items-center gap-2">
+            <span id="cypher-label" class="badge badge-medium text-xs">—</span>
+            <button onclick="toggleExpandRight()" id="expand-right-btn" class="expand-btn">⬡ Expand</button>
+          </div>
         </div>
         <div id="cypher-display" class="cypher-block text-xs">
-<span class="text-slate-600">-- Cypher queries will appear here as the agent executes them.
+          <span class="text-slate-600">-- Cypher queries will appear here as the agent executes them.
 -- Run a bottleneck scan or simulation to begin.</span>
         </div>
-        <div id="cypher-params" class="mt-2 text-xs text-slate-600 font-mono"></div>
+        <div id="cypher-params" class="mt-2 text-xs text-slate-600 font-mono overflow-x-auto"></div>
       </div>
 
       <!-- Results Panel -->
-      <div class="glass rounded-xl p-4 flex-1 flex flex-col">
-        <div class="flex items-center gap-2 mb-3">
+      <div class="glass rounded-xl p-4 flex flex-col">
+        <div class="flex items-center gap-2 mb-3 flex-wrap">
           <!-- Tabs -->
-          <button id="tab-blast" class="tab-btn active px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all" onclick="showTab('blast')">Blast Radius</button>
-          <button id="tab-backup" class="tab-btn px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all" onclick="showTab('backup')">Backup Recs</button>
-          <button id="tab-packet" class="tab-btn px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all" onclick="showTab('packet')">Handoff Packet</button>
+          <button id="tab-blast"
+            class="tab-btn active px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all"
+            onclick="showTab('blast')">Blast Radius</button>
+          <button id="tab-backup"
+            class="tab-btn px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all"
+            onclick="showTab('backup')">Backup Recs</button>
+          <button id="tab-packet"
+            class="tab-btn px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all"
+            onclick="showTab('packet')">Handoff Packet</button>
         </div>
 
         <!-- Blast Radius -->
@@ -390,6 +696,10 @@
     let graphData = { nodes: [], edges: [] };
     let simulationResult = null;
     let pendingMitigation = null;
+    let physicsEnabled = true;
+    let selectedNodeId = null;
+    let centerExpanded = false;
+    let rightExpanded = false;
     const API = '';  // same-origin
 
     // -----------------------------------------------------------------------
@@ -399,10 +709,10 @@
       const t = document.getElementById('toast');
       const ti = document.getElementById('toast-inner');
       const colors = {
-        info:    'border-brand-600/40 text-brand-300',
+        info: 'border-brand-600/40 text-brand-300',
         success: 'border-emerald-600/40 text-emerald-300',
-        error:   'border-rose-600/40 text-rose-300',
-        warn:    'border-amber-600/40 text-amber-300',
+        error: 'border-rose-600/40 text-rose-300',
+        warn: 'border-amber-600/40 text-amber-300',
       };
       ti.className = `glass rounded-xl px-5 py-3 text-sm font-medium border ${colors[type] || colors.info}`;
       ti.textContent = msg;
@@ -457,9 +767,11 @@
         if (d.status === 'healthy') {
           el.textContent = `FalkorDB ✓ · ${d.node_count} nodes`;
           el.classList.add('text-emerald-500');
+          el.classList.remove('text-rose-400');
         } else {
           el.textContent = 'FalkorDB ✗ — check Docker';
           el.classList.add('text-rose-400');
+          el.classList.remove('text-emerald-500');
         }
       } catch {
         document.getElementById('health-text').textContent = 'Backend unreachable';
@@ -470,21 +782,21 @@
     // Graph Visualization
     // -----------------------------------------------------------------------
     const NODE_COLORS = {
-      Developer:   { background: '#1a3d2e', border: '#2d9b6e', highlight: { background: '#2d4a38', border: '#4cb488' } },
-      Module:      { background: '#0e2a35', border: '#22d3ee', highlight: { background: '#153545', border: '#67e8f9' } },
+      Developer: { background: '#1a3d2e', border: '#2d9b6e', highlight: { background: '#2d4a38', border: '#4cb488' } },
+      Module: { background: '#0e2a35', border: '#22d3ee', highlight: { background: '#153545', border: '#67e8f9' } },
       PullRequest: { background: '#1e1a3d', border: '#a78bfa', highlight: { background: '#2a244a', border: '#c4b5fd' } },
-      Feature:     { background: '#362a0d', border: '#f59e0b', highlight: { background: '#433510', border: '#fbbf24' } },
+      Feature: { background: '#362a0d', border: '#f59e0b', highlight: { background: '#433510', border: '#fbbf24' } },
       AgentMemory: { background: '#2d0f18', border: '#f43f5e', highlight: { background: '#3a1422', border: '#fb7185' } },
     };
 
     const EDGE_COLORS = {
-      AUTHORED:           '#2d9b6e',
-      REVIEWED:           '#059669',
-      MODIFIES:           '#22d3ee',
-      DEPENDS_ON:         '#f59e0b',
-      REQUIRES_MODULE:    '#f43f5e',
+      AUTHORED: '#2d9b6e',
+      REVIEWED: '#059669',
+      MODIFIES: '#22d3ee',
+      DEPENDS_ON: '#f59e0b',
+      REQUIRES_MODULE: '#f43f5e',
       SHADOW_ASSIGNED_TO: '#a78bfa',
-      MITIGATES_RISK_ON:  '#fb923c',
+      MITIGATES_RISK_ON: '#fb923c',
     };
 
     function initGraph(data) {
@@ -497,12 +809,12 @@
         borderWidth: 2,
         shadow: { enabled: true, color: 'rgba(0,0,0,0.5)', size: 6 },
         shape: n.group === 'Developer' ? 'dot' :
-               n.group === 'Module'    ? 'diamond' :
-               n.group === 'Feature'   ? 'star' :
-               n.group === 'AgentMemory' ? 'triangleDown' : 'dot',
+          n.group === 'Module' ? 'diamond' :
+            n.group === 'Feature' ? 'star' :
+              n.group === 'AgentMemory' ? 'triangleDown' : 'dot',
         size: n.group === 'Module' ? 18 :
-              n.group === 'Feature' ? 16 :
-              n.group === 'Developer' ? 14 : 10,
+          n.group === 'Feature' ? 16 :
+            n.group === 'Developer' ? 14 : 10,
       })));
 
       const edges = new vis.DataSet(data.edges.map((e, i) => ({
@@ -521,28 +833,45 @@
       const container = document.getElementById('graph-canvas');
       const options = {
         physics: {
-          stabilization: { iterations: 150 },
+          enabled: true,
+          stabilization: { iterations: 150, updateInterval: 25 },
           barnesHut: { gravitationalConstant: -6000, centralGravity: 0.3, springLength: 160, springConstant: 0.04, damping: 0.09 },
         },
-        interaction: { hover: true, zoomView: true, dragNodes: true, tooltipDelay: 200 },
+        interaction: { hover: true, zoomView: true, dragNodes: true, tooltipDelay: 200, navigationButtons: false },
         layout: { improvedLayout: true },
       };
 
       if (network) network.destroy();
       network = new vis.Network(container, { nodes, edges }, options);
+
+      // Stop physics after stabilization — prevents endless drift
       network.once('stabilizationIterationsDone', () => {
-        document.getElementById('graph-loader').style.opacity = '0';
-        setTimeout(() => document.getElementById('graph-loader').style.display = 'none', 500);
+        network.fit({ animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
+        setTimeout(() => {
+          network.setOptions({ physics: { enabled: false } });
+          physicsEnabled = false;
+          document.getElementById('physics-btn').classList.remove('active');
+          document.getElementById('graph-loader').style.opacity = '0';
+          setTimeout(() => document.getElementById('graph-loader').style.display = 'none', 400);
+        }, 500);
       });
 
+      // Track selected node for Focus button
+      network.on('selectNode', (params) => {
+        if (params.nodes.length > 0) {
+          selectedNodeId = params.nodes[0];
+        }
+      });
+      network.on('deselectNode', () => { selectedNodeId = null; });
+
       // Update stats
-      const devs    = data.nodes.filter(n => n.group === 'Developer').length;
-      const mods    = data.nodes.filter(n => n.group === 'Module').length;
-      const prs     = data.nodes.filter(n => n.group === 'PullRequest').length;
-      document.getElementById('stat-devs').textContent    = devs;
+      const devs = data.nodes.filter(n => n.group === 'Developer').length;
+      const mods = data.nodes.filter(n => n.group === 'Module').length;
+      const prs = data.nodes.filter(n => n.group === 'PullRequest').length;
+      document.getElementById('stat-devs').textContent = devs;
       document.getElementById('stat-modules').textContent = mods;
-      document.getElementById('stat-prs').textContent     = prs;
-      document.getElementById('node-count').textContent   = `${data.nodes.length} nodes · ${data.edges.length} edges`;
+      document.getElementById('stat-prs').textContent = prs;
+      document.getElementById('node-count').textContent = `${data.nodes.length} nodes · ${data.edges.length} edges`;
     }
 
     function buildTooltip(n) {
@@ -563,6 +892,8 @@
     async function refreshGraph() {
       document.getElementById('graph-loader').style.display = 'flex';
       document.getElementById('graph-loader').style.opacity = '1';
+      physicsEnabled = true;
+      document.getElementById('physics-btn').classList.add('active');
       try {
         const r = await fetch(`${API}/api/graph`);
         const data = await r.json();
@@ -576,7 +907,95 @@
     }
 
     function fitGraph() {
-      if (network) network.fit({ animation: { duration: 500 } });
+      if (network) network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+    }
+
+    // -----------------------------------------------------------------------
+    // Graph toolbar actions
+    // -----------------------------------------------------------------------
+    function zoomIn() {
+      if (!network) return;
+      network.moveTo({ scale: network.getScale() * 1.25, animation: { duration: 200 } });
+    }
+
+    function zoomOut() {
+      if (!network) return;
+      network.moveTo({ scale: network.getScale() * 0.8, animation: { duration: 200 } });
+    }
+
+    function focusSelected() {
+      if (!network || !selectedNodeId) {
+        showToast('Click a node on the graph first to focus it', 'warn');
+        return;
+      }
+      network.focus(selectedNodeId, {
+        scale: 1.5,
+        animation: { duration: 400, easingFunction: 'easeInOutQuad' },
+      });
+    }
+
+    function focusNodeByLabel(label) {
+      if (!network || !graphData.nodes) return;
+      // Find node by label or handle property
+      const match = graphData.nodes.find(
+        n => n.label === label || (n.properties && n.properties.handle === label)
+      );
+      if (match) {
+        selectedNodeId = match.id;
+        network.selectNodes([match.id]);
+        network.focus(match.id, {
+          scale: 1.4,
+          animation: { duration: 400, easingFunction: 'easeInOutQuad' },
+        });
+      }
+    }
+
+    function togglePhysics() {
+      if (!network) return;
+      physicsEnabled = !physicsEnabled;
+      network.setOptions({ physics: { enabled: physicsEnabled } });
+      document.getElementById('physics-btn').classList.toggle('active', physicsEnabled);
+      showToast(`Physics ${physicsEnabled ? 'enabled' : 'disabled'}`, 'info');
+    }
+
+    // -----------------------------------------------------------------------
+    // Expand / Collapse panels
+    // -----------------------------------------------------------------------
+    function toggleExpandCenter() {
+      centerExpanded = !centerExpanded;
+      const center = document.getElementById('center-panel');
+      const left = document.getElementById('left-sidebar');
+      const right = document.getElementById('right-panel');
+      const btn = document.getElementById('expand-center-btn');
+
+      if (centerExpanded) {
+        center.style.gridColumn = 'span 9';
+        left.classList.add('panel-hidden');
+        btn.textContent = '⬡ Collapse';
+      } else {
+        center.style.gridColumn = '';
+        left.classList.remove('panel-hidden');
+        btn.textContent = '⬡ Expand';
+      }
+      // Redraw graph after layout change
+      setTimeout(() => { if (network) network.redraw(); }, 100);
+    }
+
+    function toggleExpandRight() {
+      rightExpanded = !rightExpanded;
+      const center = document.getElementById('center-panel');
+      const right = document.getElementById('right-panel');
+      const btn = document.getElementById('expand-right-btn');
+
+      if (rightExpanded) {
+        right.style.gridColumn = 'span 7';
+        center.classList.add('panel-hidden');
+        btn.textContent = '⬡ Collapse';
+      } else {
+        right.style.gridColumn = '';
+        center.classList.remove('panel-hidden');
+        btn.textContent = '⬡ Expand';
+      }
     }
 
     // -----------------------------------------------------------------------
@@ -594,7 +1013,7 @@
           opt.textContent = `${dev.name} (${dev.handle}) · ${dev.role}`;
           sel.appendChild(opt);
         });
-      } catch {}
+      } catch { }
     }
 
     // -----------------------------------------------------------------------
@@ -622,7 +1041,7 @@
 
         container.innerHTML = d.result.map(b => `
           <div class="bg-surface-800/60 rounded-lg p-3 border border-slate-700/50 hover:border-rose-500/40 transition-all cursor-pointer"
-               onclick="document.getElementById('dev-selector').value='${b.sole_expert}'">
+               onclick="handleBottleneckClick('${b.sole_expert}', '${b.module}')">
             <div class="flex items-center justify-between mb-1">
               <span class="font-semibold text-xs text-white">${b.module}</span>
               <span class="badge badge-${b.criticality}">${b.criticality}</span>
@@ -642,6 +1061,12 @@
         btn.innerHTML = 'Scan Now';
         btn.disabled = false;
       }
+    }
+
+    function handleBottleneckClick(expertHandle, moduleName) {
+      document.getElementById('dev-selector').value = expertHandle;
+      // Focus the sole expert node on the graph
+      focusNodeByLabel(expertHandle);
     }
 
     // -----------------------------------------------------------------------
@@ -670,7 +1095,7 @@
 
         // Update Cypher inspector with the blast radius query
         if (d.execution_log && d.execution_log.length > 0) {
-          const step = d.execution_log.find(s => s.step === 'simulate_developer_unavailable') || d.execution_log[0];
+          const step = d.execution_log.find(s => s.step && s.step.includes('simulate_developer_unavailable')) || d.execution_log[0];
           setCypher('Q2 · simulate_developer_unavailable', step.cypher, step.params);
         }
 
@@ -699,8 +1124,8 @@
       const features = d.blocked_features || [];
 
       const scoreColor = d.blast_radius_score > 5 ? 'border-rose-500 text-rose-400' :
-                         d.blast_radius_score > 3 ? 'border-amber-500 text-amber-400' :
-                         'border-brand-500 text-brand-400';
+        d.blast_radius_score > 3 ? 'border-amber-500 text-amber-400' :
+          'border-brand-500 text-brand-400';
 
       document.getElementById('blast-content').innerHTML = `
         <div class="space-y-3">
@@ -751,7 +1176,7 @@
       const recs = d.module_recommendations || {};
 
       if (d.execution_log) {
-        const step = d.execution_log.find(s => s.step && s.step.startsWith('recommend_backup_engineer'));
+        const step = d.execution_log.find(s => s.step && s.step.startsWith('Q3'));
         if (step) setCypher('Q3 · recommend_backup_engineer', step.cypher, step.params);
       }
 
@@ -797,7 +1222,7 @@
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/`([^`]+)`/g, '<code>$1</code>')
         .replace(/^- (.+)$/gm, '<li>$1</li>')
-        .replace(/(<li>[\s\S]+?<\/li>)/gm, '<ul>$1</ul>')
+        .replace(/((<li>[\s\S]+?<\/li>))/gm, '<ul>$1</ul>')
         .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
         .replace(/\n\n/g, '</p><p>');
     }
@@ -886,15 +1311,17 @@
     }
 
     // -----------------------------------------------------------------------
-    // Live GitHub Ingestion & Executive Audit
+    // Live GitHub Ingestion
     // -----------------------------------------------------------------------
     async function ingestGitHubRepo() {
       const val = (document.getElementById('gh-repo-input').value || '').trim();
       if (!val.includes('/')) {
-        showToast('Enter owner/repo (e.g. FalkorDB/falkordb-py)', 'warn');
+        showToast('Enter owner/repo (e.g. arshsk16/cortex)', 'warn');
         return;
       }
       const [owner, repo] = val.split('/');
+      const clearExisting = document.getElementById('gh-clear-checkbox').checked;
+
       const btn = document.getElementById('gh-ingest-btn');
       btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:1.5px"></span> Ingesting GitHub PRs...';
       btn.disabled = true;
@@ -903,14 +1330,16 @@
         const r = await fetch(`${API}/api/ingest-github`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ owner, repo, max_prs: 15 }),
+          body: JSON.stringify({ owner, repo, max_prs: 20, clear_existing: clearExisting }),
         });
         const d = await r.json();
         if (d.error) {
           showToast(d.error, 'error');
         } else {
-          showToast(`✓ Ingested ${d.prs} PRs & ${d.developers} devs from ${owner}/${repo}!`, 'success');
+          showToast(`✓ Ingested ${d.prs} PRs · ${d.developers} devs · ${d.modules || 0} sub-modules from ${owner}/${repo}!`, 'success');
+          // Refresh everything so new repo is immediately visible
           await Promise.all([refreshGraph(), loadDevelopers(), checkHealth()]);
+          setTimeout(runBottleneckScan, 400);
         }
       } catch (e) {
         showToast('GitHub ingest failed: ' + e.message, 'error');
@@ -920,6 +1349,9 @@
       }
     }
 
+    // -----------------------------------------------------------------------
+    // Executive Audit
+    // -----------------------------------------------------------------------
     async function runExecutiveAudit() {
       const btn = document.getElementById('audit-btn');
       btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:1.5px"></span> Auditing...';
@@ -974,4 +1406,5 @@
     window.addEventListener('load', init);
   </script>
 </body>
+
 </html>

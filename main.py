@@ -72,6 +72,7 @@ class GitHubIngestRequest(BaseModel):
     owner: str
     repo: str
     max_prs: int = 20
+    clear_existing: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +202,9 @@ async def api_ingest_github(req: GitHubIngestRequest):
     Adds a new Module node for the repo and AUTHORED/MODIFIES edges for each PR.
     """
     try:
-        result = await seeder.ingest_github_repo(req.owner, req.repo, req.max_prs)
+        result = await seeder.ingest_github_repo(
+            req.owner, req.repo, req.max_prs, req.clear_existing
+        )
         return {"status": "ingested", **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
