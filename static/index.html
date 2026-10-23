@@ -28,17 +28,8 @@
           fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
           colors: {
             brand: { 50: '#eef9f4', 100: '#d6f1e4', 200: '#b0e3cc', 300: '#7dcfac', 400: '#4cb488', 500: '#2d9b6e', 600: '#217c58', 700: '#1c6347', 800: '#194f3a', 900: '#164131' },
-            surface: { 900: '#080d13', 800: '#0d1520', 700: '#121e2e', 600: '#182540', 500: '#1e2f50' },
+            surface: { 900: '#070b11', 800: '#0c131d', 700: '#111b2a', 600: '#172438', 500: '#1e2f48' },
             accent: { cyan: '#22d3ee', violet: '#a78bfa', amber: '#f59e0b', rose: '#f43f5e', emerald: '#10b981' },
-          },
-          animation: {
-            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            'fade-in': 'fadeIn 0.4s ease-out',
-            'slide-up': 'slideUp 0.4s ease-out',
-          },
-          keyframes: {
-            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-            slideUp: { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
           }
         }
       }
@@ -50,186 +41,253 @@
       box-sizing: border-box;
     }
 
-    html, body {
-      height: 100%;
-      overflow-x: hidden;
-    }
-
+    html,
     body {
-      background: #080d13;
+      margin: 0;
+      padding: 0;
+      background: #070b11;
       color: #e2e8f0;
       font-family: 'Inter', sans-serif;
-      overflow-y: auto;
     }
 
-    /* Scrollbar */
+    /* Desktop Full-Screen App Lock (Prevents all double-scrollbars & flex collapse bugs) */
+    @media (min-width: 1024px) {
+
+      html,
+      body {
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      #app-shell {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      #main-workspace {
+        flex: 1 1 0%;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        max-width: 1800px;
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      .col-scroll {
+        height: 100%;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 4px;
+      }
+
+      #center-col {
+        height: 100%;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+    }
+
+    /* Mobile / Tablet fallback (clean vertical stacking) */
+    @media (max-width: 1023px) {
+      #main-workspace {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+      }
+
+      #graph-card {
+        height: 520px !important;
+      }
+    }
+
+    /* Custom Scrollbars */
     ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
     }
 
     ::-webkit-scrollbar-track {
-      background: #0d1520;
+      background: rgba(12, 19, 29, 0.6);
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #2d9b6e;
-      border-radius: 3px;
+      background: rgba(45, 155, 110, 0.45);
+      border-radius: 999px;
     }
 
-    /* Glass card */
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(45, 155, 110, 0.8);
+    }
+
+    /* Glass Cards */
     .glass {
-      background: rgba(13, 21, 32, 0.85);
-      border: 1px solid rgba(45, 155, 110, 0.18);
+      background: rgba(12, 19, 29, 0.88);
+      border: 1px solid rgba(45, 155, 110, 0.2);
       backdrop-filter: blur(12px);
     }
 
-    /* Glow effects */
     .glow-green {
-      box-shadow: 0 0 20px rgba(45, 155, 110, 0.25), 0 0 60px rgba(45, 155, 110, 0.08);
+      box-shadow: 0 0 24px rgba(45, 155, 110, 0.16);
     }
 
-    .glow-cyan {
-      box-shadow: 0 0 20px rgba(34, 211, 238, 0.25);
+    /* Graph Card & Strictly Sized Canvas Stage */
+    #graph-card {
+      flex: 1 1 0%;
+      min-height: 440px;
+      display: flex;
+      flex-direction: column;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      position: relative;
     }
 
-    .glow-rose {
-      box-shadow: 0 0 20px rgba(244, 63, 94, 0.25);
+    #graph-stage {
+      position: relative;
+      flex: 1 1 0%;
+      min-height: 0;
+      width: 100%;
+      background: radial-gradient(circle at 50% 50%, #0f1c2e 0%, #070b11 100%);
     }
 
-    /* Graph container — strictly positioned to fill 100% of wrapper */
     #graph-canvas {
       position: absolute;
-      inset: 0;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       width: 100% !important;
       height: 100% !important;
-      background: radial-gradient(circle at center, #0c1624 0%, #060a10 100%);
+      outline: none;
     }
 
-    /* Cypher inspector */
+    /* Cypher Inspector */
     .cypher-block {
-      background: #0a0f1a;
+      background: #05080d;
       border-left: 3px solid #2d9b6e;
-      padding: 12px 16px;
+      padding: 10px 14px;
       border-radius: 0 8px 8px 0;
       font-family: 'JetBrains Mono', monospace;
       font-size: 11px;
-      line-height: 1.7;
+      line-height: 1.65;
       white-space: pre-wrap;
       word-break: break-word;
       color: #a5f3d0;
-      max-height: 260px;
+      max-height: 180px;
       overflow-y: auto;
-      overflow-x: auto;
     }
 
-    /* Keyword highlighting */
     .kw-match {
       color: #a78bfa;
+      font-weight: 600;
     }
 
     .kw-return {
       color: #22d3ee;
+      font-weight: 600;
     }
 
     .kw-where {
       color: #f59e0b;
+      font-weight: 600;
     }
 
     .kw-create {
       color: #f43f5e;
+      font-weight: 600;
     }
 
     .kw-merge {
       color: #fb923c;
+      font-weight: 600;
     }
 
     .kw-with {
       color: #34d399;
+      font-weight: 600;
     }
 
-    /* Status badge */
+    /* Status Badges */
     .badge {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 2px 10px;
+      padding: 2px 9px;
       border-radius: 999px;
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 600;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.03em;
     }
 
     .badge-critical {
       background: rgba(244, 63, 94, 0.15);
       color: #f43f5e;
-      border: 1px solid rgba(244, 63, 94, 0.3);
+      border: 1px solid rgba(244, 63, 94, 0.35);
     }
 
     .badge-high {
       background: rgba(245, 158, 11, 0.15);
       color: #f59e0b;
-      border: 1px solid rgba(245, 158, 11, 0.3);
+      border: 1px solid rgba(245, 158, 11, 0.35);
     }
 
     .badge-medium {
       background: rgba(34, 211, 238, 0.12);
       color: #22d3ee;
-      border: 1px solid rgba(34, 211, 238, 0.25);
+      border: 1px solid rgba(34, 211, 238, 0.3);
     }
 
-    .badge-active {
-      background: rgba(16, 185, 129, 0.15);
-      color: #10b981;
-      border: 1px solid rgba(16, 185, 129, 0.3);
-    }
-
-    /* Score ring */
+    /* Score Ring */
     .score-ring {
-      width: 72px;
-      height: 72px;
+      width: 64px;
+      height: 64px;
       border-radius: 50%;
       border: 3px solid;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
+      font-size: 19px;
       font-weight: 800;
       flex-shrink: 0;
     }
 
-    /* Animated gradient heading */
     .gradient-text {
-      background: linear-gradient(135deg, #2d9b6e 0%, #22d3ee 50%, #a78bfa 100%);
+      background: linear-gradient(135deg, #4cb488 0%, #22d3ee 55%, #a78bfa 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
 
-    /* Tab active */
     .tab-btn.active {
-      background: rgba(45, 155, 110, 0.2);
+      background: rgba(45, 155, 110, 0.22);
       border-color: #2d9b6e;
       color: #4cb488;
     }
 
-    /* Node legend */
     .legend-dot {
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       display: inline-block;
       flex-shrink: 0;
     }
 
-    /* Loader */
+    /* Spinner */
     .loader {
-      width: 20px;
-      height: 20px;
-      border: 2px solid rgba(45, 155, 110, 0.3);
+      width: 22px;
+      height: 22px;
+      border: 2.5px solid rgba(45, 155, 110, 0.25);
       border-top-color: #2d9b6e;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 0.75s linear infinite;
       display: inline-block;
     }
 
@@ -239,24 +297,27 @@
       }
     }
 
-    /* Packet markdown */
+    /* Markdown Handoff Packet Styling */
     .packet-content h2,
     .packet-content h3 {
       color: #a5f3d0;
       font-weight: 700;
+      font-size: 13px;
       margin: 12px 0 6px;
     }
 
     .packet-content p {
-      color: #94a3b8;
-      line-height: 1.7;
+      color: #cbd5e1;
+      font-size: 12px;
+      line-height: 1.65;
       margin: 6px 0;
     }
 
     .packet-content ul {
       list-style: disc;
-      padding-left: 20px;
+      padding-left: 18px;
       color: #94a3b8;
+      font-size: 12px;
     }
 
     .packet-content li {
@@ -264,32 +325,27 @@
     }
 
     .packet-content code {
-      background: rgba(45, 155, 110, 0.15);
+      background: rgba(45, 155, 110, 0.16);
       color: #4cb488;
-      padding: 1px 6px;
+      padding: 1px 5px;
       border-radius: 4px;
-      font-family: monospace;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
     }
 
     .packet-content strong {
-      color: #e2e8f0;
+      color: #f8fafc;
     }
 
     .packet-content blockquote {
       border-left: 3px solid #2d9b6e;
-      padding-left: 12px;
+      padding-left: 10px;
       color: #64748b;
       font-style: italic;
+      margin: 8px 0;
     }
 
-    /* Scrollable sections */
-    .scroll-panel {
-      max-height: 420px;
-      overflow-y: auto;
-      overflow-x: auto;
-    }
-
-    /* Pulse dot */
+    /* Pulse Indicator */
     .pulse-dot {
       width: 8px;
       height: 8px;
@@ -300,461 +356,368 @@
     }
 
     @keyframes pulseDot {
-      0%, 100% {
+
+      0%,
+      100% {
         opacity: 1;
         transform: scale(1);
       }
+
       50% {
-        opacity: 0.5;
-        transform: scale(1.4);
+        opacity: 0.45;
+        transform: scale(1.35);
       }
     }
 
-    /* Graph zoom toolbar */
+    /* Floating Graph Controls */
     .graph-toolbar {
       position: absolute;
-      bottom: 16px;
-      right: 16px;
-      z-index: 10;
+      bottom: 14px;
+      right: 14px;
+      z-index: 15;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
     }
 
     .graph-toolbar button {
       width: 32px;
       height: 32px;
       border-radius: 8px;
-      background: rgba(13, 21, 32, 0.9);
+      background: rgba(12, 19, 29, 0.92);
       border: 1px solid rgba(45, 155, 110, 0.35);
       color: #4cb488;
-      font-size: 14px;
+      font-size: 13px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.15s;
-      backdrop-filter: blur(8px);
+      transition: all 0.15s ease;
     }
 
     .graph-toolbar button:hover {
-      background: rgba(45, 155, 110, 0.2);
-      border-color: #2d9b6e;
-      color: #a5f3d0;
+      background: rgba(45, 155, 110, 0.25);
+      border-color: #4cb488;
+      color: #ffffff;
     }
 
     .graph-toolbar button.active {
-      background: rgba(45, 155, 110, 0.3);
+      background: rgba(45, 155, 110, 0.32);
       border-color: #4cb488;
-    }
-
-    /* Expand/Collapse panel buttons */
-    .expand-btn {
-      padding: 2px 8px;
-      font-size: 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(45, 155, 110, 0.3);
-      color: #4cb488;
-      cursor: pointer;
-      background: transparent;
-      transition: all 0.15s;
-      white-space: nowrap;
-    }
-
-    .expand-btn:hover {
-      background: rgba(45, 155, 110, 0.15);
-    }
-
-    /* Expanded state classes */
-    .panel-expanded-center {
-      grid-column: span 9 !important;
-    }
-
-    .panel-expanded-right {
-      grid-column: span 7 !important;
-    }
-
-    .panel-hidden {
-      display: none !important;
-    }
-
-    /* Main grid container — full viewport height stretch */
-    #main-grid {
-      display: grid;
-      grid-template-columns: repeat(12, minmax(0, 1fr));
-      gap: 1.25rem;
-      min-height: calc(100vh - 60px);
-      padding: 1.25rem 1.5rem;
-      max-width: 1700px;
-      margin: 0 auto;
-      align-items: stretch;
-    }
-
-    #left-sidebar {
-      grid-column: span 3;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      overflow-y: auto;
-      max-height: calc(100vh - 84px);
-      position: sticky;
-      top: 72px;
-      padding-right: 2px;
-    }
-
-    #center-panel {
-      grid-column: span 5;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      height: calc(100vh - 84px);
-      min-height: 640px;
-      position: sticky;
-      top: 72px;
-    }
-
-    #right-panel {
-      grid-column: span 4;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      overflow-y: auto;
-      max-height: calc(100vh - 84px);
-      position: sticky;
-      top: 72px;
-      padding-right: 2px;
-    }
-
-    /* Graph canvas wrapper — takes all remaining vertical height in center column */
-    #graph-wrapper {
-      position: relative;
-      border-radius: 0.75rem;
-      overflow: hidden;
-      flex: 1 1 auto;
-      min-height: 520px;
-      width: 100%;
-    }
-
-    /* GitHub ingest checkbox */
-    .gh-checkbox {
-      width: 14px;
-      height: 14px;
-      accent-color: #a78bfa;
-      cursor: pointer;
-      flex-shrink: 0;
     }
   </style>
 </head>
 
 <body class="dark">
+  <div id="app-shell">
 
-  <!-- ===== HEADER ===== -->
-  <header class="sticky top-0 z-50 glass border-b border-brand-800/30">
-    <div class="max-w-[1600px] mx-auto px-6 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div
-          class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-accent-cyan flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-          B0</div>
-        <div>
-          <h1 class="text-base font-bold gradient-text tracking-tight">BusFactor Zero</h1>
-          <p class="text-xs text-slate-500">Autonomous Company Brain · FalkorDB GraphRAG</p>
+    <!-- ===== TOP HEADER ===== -->
+    <header class="glass border-b border-brand-800/40 shrink-0 z-30">
+      <div class="max-w-[1800px] mx-auto px-5 py-2.5 flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-3">
+          <div
+            class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-accent-cyan flex items-center justify-center text-white font-extrabold text-sm shadow-md">
+            B0
+          </div>
+          <div>
+            <h1 class="text-base font-bold gradient-text tracking-tight leading-none">BusFactor Zero</h1>
+            <p class="text-[11px] text-slate-400 mt-0.5">Autonomous Company Brain · FalkorDB GraphRAG</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <div id="health-indicator"
+            class="flex items-center gap-2 px-3 py-1 rounded-full bg-surface-800 border border-slate-800 text-xs text-slate-400">
+            <div class="pulse-dot"></div>
+            <span id="health-text">Connecting...</span>
+          </div>
+          <button id="audit-btn" onclick="runExecutiveAudit()"
+            class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-accent-cyan/40 text-accent-cyan hover:bg-accent-cyan/10 transition-all flex items-center gap-1.5">
+            <span>📊</span> Executive Audit
+          </button>
+          <button id="seed-btn" onclick="seedGraph()"
+            class="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-brand-500/40 text-brand-300 hover:bg-brand-900/40 hover:border-brand-400 transition-all flex items-center gap-1.5">
+            <span>⚡</span> Reseed Graph
+          </button>
         </div>
       </div>
-      <div class="flex items-center gap-3 flex-wrap">
-        <div id="health-indicator" class="flex items-center gap-2 text-xs text-slate-500">
-          <div class="pulse-dot"></div>
-          <span id="health-text">Connecting...</span>
+    </header>
+
+    <!-- ===== 3-COLUMN WORKSPACE ===== -->
+    <div id="main-workspace">
+
+      <!-- ==================== LEFT SIDEBAR (3 COLS) ==================== -->
+      <aside id="left-col" class="lg:col-span-3 col-scroll flex flex-col gap-3">
+
+        <!-- 1. Bus Factor Scan -->
+        <div class="glass rounded-xl p-3.5 glow-green shrink-0">
+          <div class="flex items-center justify-between mb-2.5">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-brand-300 flex items-center gap-1.5">
+              <span>🎯</span> Bus Factor Scan (Q1)
+            </h2>
+            <button onclick="runBottleneckScan()" id="scan-btn"
+              class="px-2.5 py-1 text-xs font-semibold rounded-md bg-brand-600/25 border border-brand-500/40 text-brand-300 hover:bg-brand-600/40 transition-all">
+              Scan Now
+            </button>
+          </div>
+          <div id="bottleneck-list" class="space-y-2 max-h-52 overflow-y-auto pr-1">
+            <p class="text-xs text-slate-500 italic">Scanning single-point-of-failure modules...</p>
+          </div>
         </div>
-        <button id="audit-btn" onclick="runExecutiveAudit()"
-          class="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-accent-cyan/40 text-accent-cyan hover:bg-accent-cyan/10 transition-all duration-200 flex items-center gap-1.5">
-          <span>📊</span> Executive Audit
-        </button>
-        <button id="seed-btn" onclick="seedGraph()"
-          class="px-4 py-1.5 text-xs font-semibold rounded-lg border border-brand-600/40 text-brand-400 hover:bg-brand-900/40 hover:border-brand-500 transition-all duration-200 flex items-center gap-2">
-          <span>⚡</span> Reseed Graph
-        </button>
-      </div>
-    </div>
-  </header>
 
-  <!-- ===== MAIN LAYOUT ===== -->
-  <div id="main-grid">
-
-    <!-- LEFT SIDEBAR -->
-    <aside id="left-sidebar">
-
-      <!-- Bus Factor Scan -->
-      <div class="glass rounded-xl p-4 glow-green">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold text-brand-300 flex items-center gap-2">
-            <span>🎯</span> Bus Factor Scan
+        <!-- 2. Simulate Developer Leave -->
+        <div class="glass rounded-xl p-3.5 shrink-0">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-accent-amber mb-2.5 flex items-center gap-1.5">
+            <span>🚨</span> Simulate Developer Leave
           </h2>
-          <button onclick="runBottleneckScan()" id="scan-btn"
-            class="px-3 py-1 text-xs font-semibold rounded-lg bg-brand-600/20 border border-brand-500/30 text-brand-400 hover:bg-brand-600/40 transition-all">
-            Scan Now
+          <select id="dev-selector"
+            class="w-full bg-surface-800 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-200 mb-2.5 focus:outline-none focus:border-brand-500">
+            <option value="">— Select Developer —</option>
+          </select>
+          <button id="simulate-btn" onclick="runSimulation()"
+            class="w-full py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-amber-500 to-rose-500 text-white hover:opacity-95 transition-all flex items-center justify-center gap-1.5 shadow-md">
+            <span>⚡</span> Run Autonomous Mitigation
+          </button>
+          <p class="text-[11px] text-slate-500 mt-1.5 text-center">Executes Q1 → Q2 → Q3 → GraphRAG → LLM</p>
+        </div>
+
+        <!-- 3. Live GitHub Ingestion -->
+        <div class="glass rounded-xl p-3.5 shrink-0">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-accent-violet mb-2 flex items-center gap-1.5">
+            <span>🐙</span> Live GitHub Repo Ingest
+          </h2>
+          <input id="gh-repo-input" type="text" placeholder="owner/repo (e.g. arshsk16/cortex)" value="arshsk16/cortex"
+            class="w-full bg-surface-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 mb-2 focus:outline-none focus:border-accent-violet" />
+          <label class="flex items-center gap-2 text-xs text-slate-400 mb-2.5 cursor-pointer select-none">
+            <input type="checkbox" id="gh-clear-checkbox" class="rounded accent-violet-400" checked />
+            <span>Replace synthetic graph with this repo</span>
+          </label>
+          <button id="gh-ingest-btn" onclick="ingestGitHubRepo()"
+            class="w-full py-1.5 text-xs font-semibold rounded-lg bg-accent-violet/20 border border-accent-violet/40 text-accent-violet hover:bg-accent-violet/30 transition-all flex items-center justify-center gap-1.5">
+            <span>⬇</span> Ingest Public PRs into FalkorDB
           </button>
         </div>
 
-        <div id="bottleneck-list" class="space-y-2 scroll-panel">
-          <p class="text-xs text-slate-500 italic">Click "Scan Now" to detect single-point-of-failure modules...</p>
-        </div>
-      </div>
-
-      <!-- Simulate Leave -->
-      <div class="glass rounded-xl p-4">
-        <h2 class="text-sm font-semibold text-accent-amber mb-3 flex items-center gap-2">
-          <span>🚨</span> Simulate Developer Leave
-        </h2>
-        <select id="dev-selector"
-          class="w-full bg-surface-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 mb-3 focus:outline-none focus:border-brand-500 transition-colors">
-          <option value="">— Select Developer —</option>
-        </select>
-        <button id="simulate-btn" onclick="runSimulation()"
-          class="w-full py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-accent-amber/80 to-rose-500/80 text-white hover:from-accent-amber hover:to-rose-500 transition-all duration-300 flex items-center justify-center gap-2">
-          <span>⚡</span> Run Autonomous Mitigation
-        </button>
-        <p class="text-xs text-slate-600 mt-2 text-center">Triggers Q1→Q2→Q3→GraphRAG→LLM pipeline</p>
-      </div>
-
-      <!-- Live GitHub Ingestion -->
-      <div class="glass rounded-xl p-4">
-        <h2 class="text-sm font-semibold text-accent-violet mb-2 flex items-center gap-2">
-          <span>🐙</span> Live GitHub Repo Ingest
-        </h2>
-        <div class="flex gap-2 mb-2">
-          <input id="gh-repo-input" type="text" placeholder="owner/repo"
-            value="arshsk16/cortex"
-            class="w-full bg-surface-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-accent-violet" />
-        </div>
-        <label class="flex items-center gap-2 text-xs text-slate-400 mb-2 cursor-pointer select-none">
-          <input type="checkbox" id="gh-clear-checkbox" class="gh-checkbox" checked />
-          Replace synthetic graph with this repo
-        </label>
-        <button id="gh-ingest-btn" onclick="ingestGitHubRepo()"
-          class="w-full py-1.5 text-xs font-semibold rounded-lg bg-accent-violet/20 border border-accent-violet/40 text-accent-violet hover:bg-accent-violet/30 transition-all flex items-center justify-center gap-1.5">
-          <span>⬇</span> Ingest Public PRs into FalkorDB
-        </button>
-      </div>
-
-      <!-- Legend -->
-      <div class="glass rounded-xl p-4">
-        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Graph Legend</h3>
-        <div class="space-y-2 text-xs">
-          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#2d9b6e"></span><span class="text-slate-300">Developer</span></div>
-          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#22d3ee"></span><span class="text-slate-300">Module</span></div>
-          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#a78bfa"></span><span class="text-slate-300">PullRequest</span></div>
-          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#f59e0b"></span><span class="text-slate-300">Feature</span></div>
-          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#f43f5e"></span><span class="text-slate-300">AgentMemory</span></div>
-        </div>
-        <div class="mt-3 pt-3 border-t border-slate-800">
-          <div class="text-xs text-slate-500 space-y-1">
-            <div><span class="text-brand-500">━━</span> AUTHORED / REVIEWED</div>
+        <!-- 4. Compact Graph Legend -->
+        <div class="glass rounded-xl p-3.5 shrink-0">
+          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Graph Ontology Legend</h3>
+          <div class="grid grid-cols-2 gap-1.5 text-xs mb-2.5">
+            <div class="flex items-center gap-1.5"><span class="legend-dot" style="background:#2d9b6e"></span><span
+                class="text-slate-300">Developer</span></div>
+            <div class="flex items-center gap-1.5"><span class="legend-dot" style="background:#22d3ee"></span><span
+                class="text-slate-300">Module</span></div>
+            <div class="flex items-center gap-1.5"><span class="legend-dot" style="background:#a78bfa"></span><span
+                class="text-slate-300">PullRequest</span></div>
+            <div class="flex items-center gap-1.5"><span class="legend-dot" style="background:#f59e0b"></span><span
+                class="text-slate-300">Feature</span></div>
+            <div class="flex items-center gap-1.5 col-span-2"><span class="legend-dot"
+                style="background:#f43f5e"></span><span class="text-slate-300">AgentMemory (Mitigation)</span></div>
+          </div>
+          <div class="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-1 text-[11px] text-slate-400">
+            <div><span class="text-brand-400">━━</span> AUTHORED</div>
             <div><span class="text-accent-cyan">━━</span> MODIFIES</div>
             <div><span class="text-accent-amber">━━</span> DEPENDS_ON</div>
-            <div><span class="text-accent-violet">━━</span> SHADOW_ASSIGNED_TO</div>
-            <div><span class="text-rose-400">━━</span> REQUIRES_MODULE</div>
-          </div>
-        </div>
-      </div>
-
-    </aside>
-
-    <!-- CENTER: GRAPH -->
-    <main id="center-panel">
-
-      <!-- Graph Visualization -->
-      <div id="graph-wrapper" class="glass flex flex-col">
-        <div class="absolute top-3 left-4 z-10 flex items-center gap-3">
-          <span class="text-xs font-semibold text-brand-400 uppercase tracking-wider">Live Graph · CompanyBrain</span>
-          <span id="node-count" class="text-xs text-slate-500"></span>
-        </div>
-        <div class="absolute top-3 right-4 z-10 flex gap-2 items-center">
-          <button onclick="refreshGraph()"
-            class="px-2 py-1 text-xs rounded border border-slate-700 text-slate-400 hover:border-brand-500 hover:text-brand-400 transition-all">
-            ↻ Refresh
-          </button>
-          <button onclick="fitGraph()"
-            class="px-2 py-1 text-xs rounded border border-slate-700 text-slate-400 hover:border-brand-500 hover:text-brand-400 transition-all">
-            ⊡ Fit
-          </button>
-          <button onclick="toggleExpandCenter()" id="expand-center-btn" class="expand-btn">
-            ⬡ Expand
-          </button>
-        </div>
-        <div id="graph-canvas"></div>
-        <div id="graph-loader" class="absolute inset-0 flex items-center justify-center bg-surface-900/80 z-20">
-          <div class="text-center">
-            <div class="loader mx-auto mb-3"></div>
-            <p class="text-sm text-slate-400">Loading graph from FalkorDB...</p>
+            <div><span class="text-accent-violet">┅┅</span> SHADOW_ASSIGN</div>
           </div>
         </div>
 
-        <!-- Floating Zoom Toolbar -->
-        <div class="graph-toolbar">
-          <button onclick="zoomIn()" title="Zoom In">➕</button>
-          <button onclick="zoomOut()" title="Zoom Out">➖</button>
-          <button onclick="fitGraph()" title="Fit All Nodes">⊡</button>
-          <button onclick="focusSelected()" id="focus-btn" title="Focus Selected Node">🎯</button>
-          <button onclick="togglePhysics()" id="physics-btn" class="active" title="Physics On/Off">⚛</button>
-        </div>
-      </div>
+      </aside>
 
-      <!-- Stats Bar -->
-      <div id="stats-bar" class="grid grid-cols-4 gap-3">
-        <div class="glass rounded-lg p-3 text-center">
-          <div class="text-xl font-bold text-brand-400" id="stat-devs">—</div>
-          <div class="text-xs text-slate-500 mt-1">Developers</div>
-        </div>
-        <div class="glass rounded-lg p-3 text-center">
-          <div class="text-xl font-bold text-accent-cyan" id="stat-modules">—</div>
-          <div class="text-xs text-slate-500 mt-1">Modules</div>
-        </div>
-        <div class="glass rounded-lg p-3 text-center">
-          <div class="text-xl font-bold text-accent-violet" id="stat-prs">—</div>
-          <div class="text-xs text-slate-500 mt-1">Pull Requests</div>
-        </div>
-        <div class="glass rounded-lg p-3 text-center">
-          <div class="text-xl font-bold text-accent-rose" id="stat-bottlenecks">—</div>
-          <div class="text-xs text-slate-500 mt-1">Bottlenecks</div>
-        </div>
-      </div>
+      <!-- ==================== CENTER GRAPH PANEL (5 COLS) ==================== -->
+      <main id="center-col" class="lg:col-span-5">
 
-    </main>
-
-    <!-- RIGHT PANEL -->
-    <aside id="right-panel">
-
-      <!-- Cypher Execution Inspector -->
-      <div class="glass rounded-xl p-4">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold text-accent-cyan flex items-center gap-2">
-            <span>🔍</span> Cypher Inspector
-          </h2>
-          <div class="flex items-center gap-2">
-            <span id="cypher-label" class="badge badge-medium text-xs">—</span>
-            <button onclick="toggleExpandRight()" id="expand-right-btn" class="expand-btn">⬡ Expand</button>
+        <!-- Graph Card -->
+        <div id="graph-card" class="glass">
+          <!-- Dedicated Non-Overlapping Header Bar -->
+          <div
+            class="px-4 py-2.5 border-b border-slate-800/80 flex items-center justify-between shrink-0 bg-surface-900/60">
+            <div class="flex items-center gap-2.5">
+              <span class="text-xs font-bold text-brand-400 uppercase tracking-wider">Live Graph · CompanyBrain</span>
+              <span id="node-count" class="text-xs text-slate-500 font-mono"></span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="refreshGraph()"
+                class="px-2.5 py-1 text-xs rounded-md border border-slate-700 text-slate-300 hover:border-brand-500 hover:text-brand-300 transition-all">
+                ↻ Refresh
+              </button>
+              <button onclick="fitGraph()"
+                class="px-2.5 py-1 text-xs rounded-md border border-slate-700 text-slate-300 hover:border-brand-500 hover:text-brand-300 transition-all">
+                ⊡ Fit
+              </button>
+              <button onclick="toggleExpandGraph()" id="expand-graph-btn"
+                class="px-2.5 py-1 text-xs rounded-md border border-brand-500/40 text-brand-300 hover:bg-brand-500/20 transition-all">
+                ⬡ Expand
+              </button>
+            </div>
           </div>
-        </div>
-        <div id="cypher-display" class="cypher-block text-xs">
-          <span class="text-slate-600">-- Cypher queries will appear here as the agent executes them.
--- Run a bottleneck scan or simulation to begin.</span>
-        </div>
-        <div id="cypher-params" class="mt-2 text-xs text-slate-600 font-mono overflow-x-auto"></div>
-      </div>
 
-      <!-- Results Panel -->
-      <div class="glass rounded-xl p-4 flex flex-col">
-        <div class="flex items-center gap-2 mb-3 flex-wrap">
-          <!-- Tabs -->
-          <button id="tab-blast"
-            class="tab-btn active px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all"
-            onclick="showTab('blast')">Blast Radius</button>
-          <button id="tab-backup"
-            class="tab-btn px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all"
-            onclick="showTab('backup')">Backup Recs</button>
-          <button id="tab-packet"
-            class="tab-btn px-3 py-1 text-xs font-semibold rounded border border-slate-700 text-slate-400 transition-all"
-            onclick="showTab('packet')">Handoff Packet</button>
-        </div>
+          <!-- Strictly Sized Graph Stage -->
+          <div id="graph-stage">
+            <div id="graph-canvas"></div>
 
-        <!-- Blast Radius -->
-        <div id="panel-blast" class="scroll-panel flex-1">
-          <div id="blast-content">
-            <p class="text-xs text-slate-600 italic">Simulate a developer leaving to see the organizational blast radius...</p>
+            <!-- Loader Overlay -->
+            <div id="graph-loader"
+              class="absolute inset-0 flex items-center justify-center bg-surface-900/85 z-20 transition-opacity duration-300">
+              <div class="text-center">
+                <div class="loader mx-auto mb-2.5"></div>
+                <p class="text-xs text-slate-400 font-medium">Loading live topology from FalkorDB...</p>
+              </div>
+            </div>
+
+            <!-- Floating Zoom & Physics Controls -->
+            <div class="graph-toolbar">
+              <button onclick="zoomIn()" title="Zoom In">➕</button>
+              <button onclick="zoomOut()" title="Zoom Out">➖</button>
+              <button onclick="fitGraph()" title="Fit All Nodes">⊡</button>
+              <button onclick="focusSelected()" title="Focus Selected Node">🎯</button>
+              <button onclick="togglePhysics()" id="physics-btn" class="active" title="Toggle Physics">⚛</button>
+            </div>
           </div>
         </div>
 
-        <!-- Backup Recommendations -->
-        <div id="panel-backup" class="scroll-panel flex-1 hidden">
-          <div id="backup-content">
-            <p class="text-xs text-slate-600 italic">Graph-ranked backup engineers will appear here...</p>
+        <!-- 4-Metric Bottom Bar -->
+        <div class="grid grid-cols-4 gap-2.5 shrink-0">
+          <div class="glass rounded-xl py-2.5 px-3 text-center">
+            <div class="text-lg font-extrabold text-brand-400 leading-tight" id="stat-devs">—</div>
+            <div class="text-[11px] text-slate-400">Developers</div>
+          </div>
+          <div class="glass rounded-xl py-2.5 px-3 text-center">
+            <div class="text-lg font-extrabold text-accent-cyan leading-tight" id="stat-modules">—</div>
+            <div class="text-[11px] text-slate-400">Modules</div>
+          </div>
+          <div class="glass rounded-xl py-2.5 px-3 text-center">
+            <div class="text-lg font-extrabold text-accent-violet leading-tight" id="stat-prs">—</div>
+            <div class="text-[11px] text-slate-400">Pull Requests</div>
+          </div>
+          <div class="glass rounded-xl py-2.5 px-3 text-center">
+            <div class="text-lg font-extrabold text-accent-rose leading-tight" id="stat-bottlenecks">—</div>
+            <div class="text-[11px] text-slate-400">Bottlenecks</div>
           </div>
         </div>
 
-        <!-- Handoff Packet -->
-        <div id="panel-packet" class="scroll-panel flex-1 hidden">
-          <div id="packet-content" class="packet-content">
-            <p class="text-xs text-slate-600 italic">The AI-generated technical handoff packet will appear here...</p>
+      </main>
+
+      <!-- ==================== RIGHT PANEL (4 COLS) ==================== -->
+      <aside id="right-col" class="lg:col-span-4 col-scroll flex flex-col gap-3">
+
+        <!-- 1. OpenCypher Query Inspector -->
+        <div class="glass rounded-xl p-3.5 shrink-0">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-accent-cyan flex items-center gap-1.5">
+              <span>🔍</span> OpenCypher Inspector
+            </h2>
+            <span id="cypher-label" class="badge badge-medium">idle</span>
           </div>
-          <div id="mitigate-btn-container" class="hidden mt-4">
-            <button id="mitigate-btn" onclick="commitMitigation()"
-              class="w-full py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-brand-600 to-accent-cyan/80 text-white hover:from-brand-500 hover:to-accent-cyan transition-all duration-300 flex items-center justify-center gap-2">
-              <span>💾</span> Commit to FalkorDB (Q4)
-            </button>
-            <p class="text-xs text-slate-600 text-center mt-1">Creates AgentMemory + SHADOW_ASSIGNED_TO edge</p>
+          <div id="cypher-display" class="cypher-block">-- Live OpenCypher queries executed against FalkorDB appear
+            here.</div>
+          <div id="cypher-params" class="mt-1.5 text-[11px] text-slate-500 font-mono truncate"></div>
+        </div>
+
+        <!-- 2. Agent Output Tabs (Blast Radius / Backups / Handoff Packet) -->
+        <div class="glass rounded-xl p-3.5 flex-1 flex flex-col min-h-[340px]">
+          <div class="flex items-center gap-1.5 mb-3 shrink-0 border-b border-slate-800 pb-2.5">
+            <button id="tab-blast"
+              class="tab-btn active px-3 py-1.5 text-xs font-semibold rounded-md border border-slate-700 text-slate-300 transition-all"
+              onclick="showTab('blast')">Blast Radius (Q2)</button>
+            <button id="tab-backup"
+              class="tab-btn px-3 py-1.5 text-xs font-semibold rounded-md border border-slate-700 text-slate-300 transition-all"
+              onclick="showTab('backup')">Backup Recs (Q3)</button>
+            <button id="tab-packet"
+              class="tab-btn px-3 py-1.5 text-xs font-semibold rounded-md border border-slate-700 text-slate-300 transition-all"
+              onclick="showTab('packet')">Handoff Packet</button>
+          </div>
+
+          <!-- Tab 1: Blast Radius -->
+          <div id="panel-blast" class="flex-1 overflow-y-auto pr-1">
+            <div id="blast-content">
+              <p class="text-xs text-slate-500 italic">Select a developer on the left and click "Run Autonomous
+                Mitigation" to calculate multi-hop blast radius...</p>
+            </div>
+          </div>
+
+          <!-- Tab 2: Backup Recommendations -->
+          <div id="panel-backup" class="flex-1 overflow-y-auto pr-1 hidden">
+            <div id="backup-content">
+              <p class="text-xs text-slate-500 italic">Graph-ranked backup engineers (Q3 proximity scoring) will appear
+                here...</p>
+            </div>
+          </div>
+
+          <!-- Tab 3: Handoff Packet + Commit Q4 -->
+          <div id="panel-packet" class="flex-1 overflow-y-auto pr-1 hidden flex flex-col justify-between">
+            <div id="packet-content" class="packet-content">
+              <p class="text-xs text-slate-500 italic">AI-synthesized technical handoff packet grounded in PR & review
+                history will appear here...</p>
+            </div>
+            <div id="mitigate-btn-container" class="hidden mt-4 pt-3 border-t border-slate-800 shrink-0">
+              <button id="mitigate-btn" onclick="commitMitigation()"
+                class="w-full py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-brand-600 to-accent-cyan text-white hover:opacity-95 transition-all flex items-center justify-center gap-2 shadow-md">
+                <span>💾</span> Commit to FalkorDB (Q4)
+              </button>
+              <p class="text-[11px] text-slate-500 text-center mt-1">Writes AgentMemory node + SHADOW_ASSIGNED_TO edge
+                into graph</p>
+            </div>
           </div>
         </div>
 
-      </div>
+      </aside>
 
-    </aside>
+    </div>
   </div>
 
-  <!-- ===== TOAST ===== -->
-  <div id="toast" class="fixed bottom-6 right-6 z-50 max-w-sm hidden animate-slide-up">
-    <div id="toast-inner" class="glass rounded-xl px-5 py-3 text-sm font-medium border"></div>
+  <!-- ===== TOAST NOTIFICATION ===== -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 max-w-sm hidden">
+    <div id="toast-inner" class="glass rounded-xl px-4 py-3 text-xs font-semibold border shadow-xl"></div>
   </div>
 
-  <!-- ===== SCRIPTS ===== -->
+  <!-- ===== APPLICATION LOGIC ===== -->
   <script>
-    // -----------------------------------------------------------------------
-    // State
-    // -----------------------------------------------------------------------
     let network = null;
     let graphData = { nodes: [], edges: [] };
     let simulationResult = null;
     let pendingMitigation = null;
     let physicsEnabled = true;
     let selectedNodeId = null;
-    let centerExpanded = false;
-    let rightExpanded = false;
-    const API = '';  // same-origin
+    let graphExpanded = false;
+    const API = '';
 
-    // -----------------------------------------------------------------------
-    // Toast
-    // -----------------------------------------------------------------------
+    // Toast helper
     function showToast(msg, type = 'info') {
       const t = document.getElementById('toast');
       const ti = document.getElementById('toast-inner');
       const colors = {
-        info: 'border-brand-600/40 text-brand-300',
-        success: 'border-emerald-600/40 text-emerald-300',
-        error: 'border-rose-600/40 text-rose-300',
-        warn: 'border-amber-600/40 text-amber-300',
+        info: 'border-brand-500/50 text-brand-300',
+        success: 'border-emerald-500/50 text-emerald-300',
+        error: 'border-rose-500/50 text-rose-300',
+        warn: 'border-amber-500/50 text-amber-300',
       };
-      ti.className = `glass rounded-xl px-5 py-3 text-sm font-medium border ${colors[type] || colors.info}`;
+      ti.className = `glass rounded-xl px-4 py-3 text-xs font-semibold border shadow-xl ${colors[type] || colors.info}`;
       ti.textContent = msg;
       t.classList.remove('hidden');
-      setTimeout(() => t.classList.add('hidden'), 4000);
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => t.classList.add('hidden'), 4000);
     }
 
-    // -----------------------------------------------------------------------
-    // Cypher Inspector
-    // -----------------------------------------------------------------------
+    // Cypher syntax highlighter
     function syntaxHighlight(cypher) {
-      return cypher
+      const safe = (cypher || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return safe
         .replace(/\b(MATCH|OPTIONAL MATCH)\b/g, '<span class="kw-match">$1</span>')
         .replace(/\b(RETURN)\b/g, '<span class="kw-return">$1</span>')
         .replace(/\b(WHERE)\b/g, '<span class="kw-where">$1</span>')
         .replace(/\b(CREATE)\b/g, '<span class="kw-create">$1</span>')
         .replace(/\b(MERGE)\b/g, '<span class="kw-merge">$1</span>')
-        .replace(/\b(WITH|UNWIND|SET|ORDER BY|LIMIT)\b/g, '<span class="kw-with">$1</span>');
+        .replace(/\b(WITH|UNWIND|SET|ORDER BY|LIMIT|collect|count|DISTINCT|AS|IN|NOT|AND|OR|CASE|WHEN|THEN|ELSE|END)\b/g, '<span class="kw-with">$1</span>');
     }
 
     function setCypher(label, cypher, params = {}) {
       document.getElementById('cypher-label').textContent = label;
       document.getElementById('cypher-display').innerHTML = syntaxHighlight(cypher);
       const p = document.getElementById('cypher-params');
-      if (Object.keys(params).length) {
-        p.textContent = 'Params: ' + JSON.stringify(params, null, 2);
-      } else {
-        p.textContent = '';
-      }
+      p.textContent = Object.keys(params || {}).length ? 'Params: ' + JSON.stringify(params) : '';
     }
 
-    // -----------------------------------------------------------------------
-    // Tab switching
-    // -----------------------------------------------------------------------
+    // Tab switcher
     function showTab(tab) {
       ['blast', 'backup', 'packet'].forEach(t => {
         document.getElementById(`panel-${t}`).classList.add('hidden');
@@ -764,9 +727,7 @@
       document.getElementById(`tab-${tab}`).classList.add('active');
     }
 
-    // -----------------------------------------------------------------------
-    // Health Check
-    // -----------------------------------------------------------------------
+    // Health check
     async function checkHealth() {
       try {
         const r = await fetch(`${API}/api/health`);
@@ -774,32 +735,28 @@
         const el = document.getElementById('health-text');
         if (d.status === 'healthy') {
           el.textContent = `FalkorDB ✓ · ${d.node_count} nodes`;
-          el.classList.add('text-emerald-500');
-          el.classList.remove('text-rose-400');
+          el.className = 'text-emerald-400 font-medium';
         } else {
-          el.textContent = 'FalkorDB ✗ — check Docker';
-          el.classList.add('text-rose-400');
-          el.classList.remove('text-emerald-500');
+          el.textContent = 'FalkorDB Disconnected';
+          el.className = 'text-rose-400 font-medium';
         }
       } catch {
         document.getElementById('health-text').textContent = 'Backend unreachable';
       }
     }
 
-    // -----------------------------------------------------------------------
-    // Graph Visualization
-    // -----------------------------------------------------------------------
+    // Node & Edge palettes
     const NODE_COLORS = {
-      Developer: { background: '#1a3d2e', border: '#2d9b6e', highlight: { background: '#2d4a38', border: '#4cb488' } },
-      Module: { background: '#0e2a35', border: '#22d3ee', highlight: { background: '#153545', border: '#67e8f9' } },
-      PullRequest: { background: '#1e1a3d', border: '#a78bfa', highlight: { background: '#2a244a', border: '#c4b5fd' } },
-      Feature: { background: '#362a0d', border: '#f59e0b', highlight: { background: '#433510', border: '#fbbf24' } },
-      AgentMemory: { background: '#2d0f18', border: '#f43f5e', highlight: { background: '#3a1422', border: '#fb7185' } },
+      Developer: { background: '#15382a', border: '#2d9b6e', highlight: { background: '#215740', border: '#4cb488' } },
+      Module: { background: '#0d2b38', border: '#22d3ee', highlight: { background: '#144256', border: '#67e8f9' } },
+      PullRequest: { background: '#1f193d', border: '#a78bfa', highlight: { background: '#2e2559', border: '#c4b5fd' } },
+      Feature: { background: '#38280b', border: '#f59e0b', highlight: { background: '#523b10', border: '#fbbf24' } },
+      AgentMemory: { background: '#3b101d', border: '#f43f5e', highlight: { background: '#59182c', border: '#fb7185' } },
     };
 
     const EDGE_COLORS = {
       AUTHORED: '#2d9b6e',
-      REVIEWED: '#059669',
+      REVIEWED: '#10b981',
       MODIFIES: '#22d3ee',
       DEPENDS_ON: '#f59e0b',
       REQUIRES_MODULE: '#f43f5e',
@@ -807,102 +764,110 @@
       MITIGATES_RISK_ON: '#fb923c',
     };
 
+    function buildTooltip(n) {
+      const props = n.properties || {};
+      const lines = [`[${n.group}] ${n.label}`];
+      for (const [k, v] of Object.entries(props)) {
+        if (v !== null && v !== undefined && String(v).trim() !== '') {
+          const val = String(v).length > 90 ? String(v).slice(0, 90) + '...' : String(v);
+          lines.push(`${k}: ${val}`);
+        }
+      }
+      return lines.join('\n');
+    }
+
     function initGraph(data) {
-      const nodes = new vis.DataSet(data.nodes.map(n => ({
+      const nodes = new vis.DataSet((data.nodes || []).map(n => ({
         id: n.id,
         label: n.label,
         title: buildTooltip(n),
-        color: NODE_COLORS[n.group] || { background: '#1e293b', border: '#475569' },
-        font: { color: '#e2e8f0', size: 11, face: 'Inter' },
+        color: NODE_COLORS[n.group] || { background: '#1e293b', border: '#64748b' },
+        font: { color: '#f1f5f9', size: 12, face: 'Inter', strokeWidth: 3, strokeColor: '#070b11' },
         borderWidth: 2,
-        shadow: { enabled: true, color: 'rgba(0,0,0,0.5)', size: 6 },
+        shadow: { enabled: true, color: 'rgba(0,0,0,0.6)', size: 8 },
         shape: n.group === 'Developer' ? 'dot' :
           n.group === 'Module' ? 'diamond' :
             n.group === 'Feature' ? 'star' :
               n.group === 'AgentMemory' ? 'triangleDown' : 'dot',
-        size: n.group === 'Module' ? 18 :
-          n.group === 'Feature' ? 16 :
-            n.group === 'Developer' ? 14 : 10,
+        size: n.group === 'Module' ? 20 :
+          n.group === 'Feature' ? 18 :
+            n.group === 'Developer' ? 16 :
+              n.group === 'AgentMemory' ? 18 : 11,
       })));
 
-      const edges = new vis.DataSet(data.edges.map((e, i) => ({
+      const edges = new vis.DataSet((data.edges || []).map((e, i) => ({
         id: i,
         from: e.from,
         to: e.to,
         label: e.label,
-        color: { color: EDGE_COLORS[e.label] || '#475569', opacity: 0.7 },
-        font: { color: EDGE_COLORS[e.label] || '#64748b', size: 9, face: 'JetBrains Mono', strokeWidth: 0 },
-        arrows: { to: { enabled: true, scaleFactor: 0.6 } },
-        width: e.label === 'DEPENDS_ON' ? 2 : 1.5,
+        color: { color: EDGE_COLORS[e.label] || '#475569', opacity: 0.78 },
+        font: { color: EDGE_COLORS[e.label] || '#94a3b8', size: 9, face: 'JetBrains Mono', strokeWidth: 2, strokeColor: '#070b11' },
+        arrows: { to: { enabled: true, scaleFactor: 0.55 } },
+        width: e.label === 'DEPENDS_ON' || e.label === 'SHADOW_ASSIGNED_TO' ? 2.2 : 1.4,
         dashes: e.label === 'SHADOW_ASSIGNED_TO',
-        smooth: { type: 'curvedCW', roundness: 0.2 },
+        smooth: { type: 'curvedCW', roundness: 0.16 },
       })));
 
       const container = document.getElementById('graph-canvas');
       const options = {
-        physics: {
-          enabled: true,
-          stabilization: { iterations: 150, updateInterval: 25 },
-          barnesHut: { gravitationalConstant: -6000, centralGravity: 0.3, springLength: 160, springConstant: 0.04, damping: 0.09 },
-        },
         width: '100%',
         height: '100%',
         autoResize: true,
-        interaction: { hover: true, zoomView: true, dragNodes: true, tooltipDelay: 200, navigationButtons: false },
+        physics: {
+          enabled: true,
+          stabilization: { enabled: true, iterations: 160, updateInterval: 25, fit: true },
+          barnesHut: { gravitationalConstant: -5200, centralGravity: 0.28, springLength: 145, springConstant: 0.04, damping: 0.12 },
+        },
+        interaction: { hover: true, zoomView: true, dragNodes: true, tooltipDelay: 150 },
         layout: { improvedLayout: true },
       };
 
       if (network) network.destroy();
       network = new vis.Network(container, { nodes, edges }, options);
 
-      // Stop physics after stabilization — prevents endless drift
       network.once('stabilizationIterationsDone', () => {
+        network.setSize('100%', '100%');
+        network.redraw();
         network.fit({ animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
         setTimeout(() => {
           network.setOptions({ physics: { enabled: false } });
           physicsEnabled = false;
           document.getElementById('physics-btn').classList.remove('active');
-          document.getElementById('graph-loader').style.opacity = '0';
-          setTimeout(() => document.getElementById('graph-loader').style.display = 'none', 400);
-        }, 500);
+          const loader = document.getElementById('graph-loader');
+          loader.style.opacity = '0';
+          setTimeout(() => { loader.style.display = 'none'; }, 300);
+        }, 450);
       });
 
-      // Track selected node for Focus button
-      network.on('selectNode', (params) => {
-        if (params.nodes.length > 0) {
-          selectedNodeId = params.nodes[0];
-        }
+      network.on('selectNode', params => {
+        selectedNodeId = params.nodes.length > 0 ? params.nodes[0] : null;
       });
       network.on('deselectNode', () => { selectedNodeId = null; });
 
-      // Update stats
-      const devs = data.nodes.filter(n => n.group === 'Developer').length;
-      const mods = data.nodes.filter(n => n.group === 'Module').length;
-      const prs = data.nodes.filter(n => n.group === 'PullRequest').length;
-      document.getElementById('stat-devs').textContent = devs;
-      document.getElementById('stat-modules').textContent = mods;
-      document.getElementById('stat-prs').textContent = prs;
-      document.getElementById('node-count').textContent = `${data.nodes.length} nodes · ${data.edges.length} edges`;
+      // Update counters
+      const allNodes = data.nodes || [];
+      document.getElementById('stat-devs').textContent = allNodes.filter(n => n.group === 'Developer').length;
+      document.getElementById('stat-modules').textContent = allNodes.filter(n => n.group === 'Module').length;
+      document.getElementById('stat-prs').textContent = allNodes.filter(n => n.group === 'PullRequest').length;
+      document.getElementById('node-count').textContent = `${allNodes.length} nodes · ${(data.edges || []).length} edges`;
     }
 
-    function buildTooltip(n) {
-      const props = n.properties || {};
-      let html = `<div style="background:#0d1520;border:1px solid #2d9b6e;border-radius:8px;padding:10px;font-family:Inter,sans-serif;font-size:12px;max-width:280px;color:#e2e8f0">`;
-      html += `<div style="color:#4cb488;font-weight:700;margin-bottom:6px">${n.group}</div>`;
-      for (const [k, v] of Object.entries(props)) {
-        if (typeof v === 'string' && v.length > 100) {
-          html += `<div><span style="color:#64748b">${k}:</span> ${v.slice(0, 100)}…</div>`;
-        } else {
-          html += `<div><span style="color:#64748b">${k}:</span> ${v}</div>`;
-        }
+    // ResizeObserver ensures Vis.js never renders in half-space when container dimensions change
+    const stageObserver = new ResizeObserver(() => {
+      if (network) {
+        network.setSize('100%', '100%');
+        network.redraw();
       }
-      html += '</div>';
-      return html;
-    }
+    });
+    window.addEventListener('DOMContentLoaded', () => {
+      const stage = document.getElementById('graph-stage');
+      if (stage) stageObserver.observe(stage);
+    });
 
     async function refreshGraph() {
-      document.getElementById('graph-loader').style.display = 'flex';
-      document.getElementById('graph-loader').style.opacity = '1';
+      const loader = document.getElementById('graph-loader');
+      loader.style.display = 'flex';
+      loader.style.opacity = '1';
       physicsEnabled = true;
       document.getElementById('physics-btn').classList.add('active');
       try {
@@ -913,51 +878,42 @@
         setCypher('graph-fetch', data.cypher_nodes || 'MATCH (n) RETURN n, labels(n) AS labels');
       } catch (e) {
         showToast('Failed to load graph: ' + e.message, 'error');
-        document.getElementById('graph-loader').style.display = 'none';
+        loader.style.display = 'none';
       }
     }
 
     function fitGraph() {
-      if (network) network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+      if (network) {
+        network.setSize('100%', '100%');
+        network.fit({ animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
+      }
     }
 
-    // -----------------------------------------------------------------------
-    // Graph toolbar actions
-    // -----------------------------------------------------------------------
     function zoomIn() {
-      if (!network) return;
-      network.moveTo({ scale: network.getScale() * 1.25, animation: { duration: 200 } });
+      if (network) network.moveTo({ scale: network.getScale() * 1.25, animation: { duration: 180 } });
     }
 
     function zoomOut() {
-      if (!network) return;
-      network.moveTo({ scale: network.getScale() * 0.8, animation: { duration: 200 } });
+      if (network) network.moveTo({ scale: network.getScale() * 0.8, animation: { duration: 180 } });
     }
 
     function focusSelected() {
-      if (!network || !selectedNodeId) {
-        showToast('Click a node on the graph first to focus it', 'warn');
+      if (!network || selectedNodeId === null) {
+        showToast('Click any node on the graph first to focus on it', 'warn');
         return;
       }
-      network.focus(selectedNodeId, {
-        scale: 1.5,
-        animation: { duration: 400, easingFunction: 'easeInOutQuad' },
-      });
+      network.focus(selectedNodeId, { scale: 1.45, animation: { duration: 350, easingFunction: 'easeInOutQuad' } });
     }
 
     function focusNodeByLabel(label) {
       if (!network || !graphData.nodes) return;
-      // Find node by label or handle property
       const match = graphData.nodes.find(
         n => n.label === label || (n.properties && n.properties.handle === label)
       );
       if (match) {
         selectedNodeId = match.id;
         network.selectNodes([match.id]);
-        network.focus(match.id, {
-          scale: 1.4,
-          animation: { duration: 400, easingFunction: 'easeInOutQuad' },
-        });
+        network.focus(match.id, { scale: 1.35, animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
       }
     }
 
@@ -966,65 +922,44 @@
       physicsEnabled = !physicsEnabled;
       network.setOptions({ physics: { enabled: physicsEnabled } });
       document.getElementById('physics-btn').classList.toggle('active', physicsEnabled);
-      showToast(`Physics ${physicsEnabled ? 'enabled' : 'disabled'}`, 'info');
+      showToast(`Graph physics ${physicsEnabled ? 'enabled' : 'locked'}`, 'info');
     }
 
-    // -----------------------------------------------------------------------
-    // Expand / Collapse panels
-    // -----------------------------------------------------------------------
-    function toggleExpandCenter() {
-      centerExpanded = !centerExpanded;
-      const center = document.getElementById('center-panel');
-      const left = document.getElementById('left-sidebar');
-      const right = document.getElementById('right-panel');
-      const btn = document.getElementById('expand-center-btn');
+    function toggleExpandGraph() {
+      graphExpanded = !graphExpanded;
+      const left = document.getElementById('left-col');
+      const center = document.getElementById('center-col');
+      const right = document.getElementById('right-col');
+      const btn = document.getElementById('expand-graph-btn');
 
-      if (centerExpanded) {
-        center.style.gridColumn = 'span 9';
-        left.classList.add('panel-hidden');
+      if (graphExpanded) {
+        left.classList.add('hidden');
+        right.classList.add('hidden');
+        center.className = 'lg:col-span-12';
         btn.textContent = '⬡ Collapse';
       } else {
-        center.style.gridColumn = '';
-        left.classList.remove('panel-hidden');
+        left.classList.remove('hidden');
+        right.classList.remove('hidden');
+        center.className = 'lg:col-span-5';
         btn.textContent = '⬡ Expand';
       }
-      // Redraw & refit graph after layout change so it fills the expanded space
       setTimeout(() => {
         if (network) {
           network.setSize('100%', '100%');
           network.redraw();
           network.fit({ animation: { duration: 350, easingFunction: 'easeInOutQuad' } });
         }
-      }, 120);
+      }, 80);
     }
 
-    function toggleExpandRight() {
-      rightExpanded = !rightExpanded;
-      const center = document.getElementById('center-panel');
-      const right = document.getElementById('right-panel');
-      const btn = document.getElementById('expand-right-btn');
-
-      if (rightExpanded) {
-        right.style.gridColumn = 'span 7';
-        center.classList.add('panel-hidden');
-        btn.textContent = '⬡ Collapse';
-      } else {
-        right.style.gridColumn = '';
-        center.classList.remove('panel-hidden');
-        btn.textContent = '⬡ Expand';
-      }
-    }
-
-    // -----------------------------------------------------------------------
-    // Populate developer selector
-    // -----------------------------------------------------------------------
+    // Load developers dropdown
     async function loadDevelopers() {
       try {
         const r = await fetch(`${API}/api/developers`);
         const d = await r.json();
         const sel = document.getElementById('dev-selector');
         sel.innerHTML = '<option value="">— Select Developer —</option>';
-        d.developers.forEach(dev => {
+        (d.developers || []).forEach(dev => {
           const opt = document.createElement('option');
           opt.value = dev.handle;
           opt.textContent = `${dev.name} (${dev.handle}) · ${dev.role}`;
@@ -1033,9 +968,7 @@
       } catch { }
     }
 
-    // -----------------------------------------------------------------------
-    // Bus Factor Scan (Q1)
-    // -----------------------------------------------------------------------
+    // Q1: Bottleneck Scan
     async function runBottleneckScan() {
       const btn = document.getElementById('scan-btn');
       btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:1.5px"></span>';
@@ -1044,36 +977,32 @@
       try {
         const r = await fetch(`${API}/api/bottlenecks`);
         const d = await r.json();
-
-        setCypher('Q1 · detect_bus_factor_bottlenecks', d.cypher, d.params);
+        setCypher('Q1 · detect_bottlenecks', d.cypher, d.params);
 
         const container = document.getElementById('bottleneck-list');
         if (!d.result || d.result.length === 0) {
-          container.innerHTML = '<p class="text-xs text-emerald-400">✓ No bus-factor bottlenecks detected!</p>';
+          container.innerHTML = '<p class="text-xs text-emerald-400 font-medium">✓ Zero single-point-of-failure bottlenecks detected!</p>';
           document.getElementById('stat-bottlenecks').textContent = '0';
           return;
         }
 
         document.getElementById('stat-bottlenecks').textContent = d.result.length;
-
         container.innerHTML = d.result.map(b => `
-          <div class="bg-surface-800/60 rounded-lg p-3 border border-slate-700/50 hover:border-rose-500/40 transition-all cursor-pointer"
+          <div class="bg-surface-800/80 rounded-lg p-2.5 border border-slate-700/60 hover:border-rose-500/50 transition-all cursor-pointer"
                onclick="handleBottleneckClick('${b.sole_expert}', '${b.module}')">
-            <div class="flex items-center justify-between mb-1">
-              <span class="font-semibold text-xs text-white">${b.module}</span>
-              <span class="badge badge-${b.criticality}">${b.criticality}</span>
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="font-bold text-xs text-white truncate">${b.module}</span>
+              <span class="badge badge-${b.criticality || 'critical'}">${b.criticality || 'critical'}</span>
             </div>
             <div class="text-xs text-rose-400 font-mono">sole expert: ${b.sole_expert}</div>
-            <div class="text-xs text-slate-500 mt-1">${b.blocking_feature}</div>
-            <div class="flex items-center justify-between mt-1.5">
-              <span class="text-xs text-amber-400">${b.revenue_impact}</span>
-              <span class="text-xs text-slate-500">${b.deadline_days}d deadline</span>
+            <div class="flex items-center justify-between mt-1 text-[11px] text-slate-400">
+              <span class="truncate">${b.blocking_feature}</span>
+              <span class="text-amber-400 font-semibold shrink-0 ml-2">${b.revenue_impact}</span>
             </div>
           </div>
         `).join('');
-
       } catch (e) {
-        showToast('Scan failed: ' + e.message, 'error');
+        showToast('Bottleneck scan failed: ' + e.message, 'error');
       } finally {
         btn.innerHTML = 'Scan Now';
         btn.disabled = false;
@@ -1082,23 +1011,27 @@
 
     function handleBottleneckClick(expertHandle, moduleName) {
       document.getElementById('dev-selector').value = expertHandle;
-      // Focus the sole expert node on the graph
       focusNodeByLabel(expertHandle);
+      showToast(`Selected sole expert ${expertHandle} (${moduleName})`, 'info');
     }
 
-    // -----------------------------------------------------------------------
-    // Simulation (Q2 + Q3 + GraphRAG + LLM)
-    // -----------------------------------------------------------------------
+    // Q2 + Q3 + GraphRAG Simulation
     async function runSimulation() {
       const handle = document.getElementById('dev-selector').value;
-      if (!handle) { showToast('Please select a developer first', 'warn'); return; }
+      if (!handle) {
+        showToast('Select a developer first (or click a bottleneck card)', 'warn');
+        return;
+      }
 
       const btn = document.getElementById('simulate-btn');
       btn.innerHTML = '<span class="loader" style="width:14px;height:14px;border-width:2px"></span> Running Agent Pipeline...';
       btn.disabled = true;
 
-      // Show loading states
-      document.getElementById('blast-content').innerHTML = `<div class="flex items-center gap-2 text-xs text-slate-400"><div class="loader" style="width:12px;height:12px;border-width:1.5px"></div> Running Q2 blast radius + Q3 backup + GraphRAG...</div>`;
+      document.getElementById('blast-content').innerHTML = `
+        <div class="flex items-center gap-2.5 text-xs text-slate-300 py-4">
+          <div class="loader" style="width:14px;height:14px;border-width:2px"></div>
+          <span>Executing Q2 Blast Radius + Q3 Proximity Ranking + GraphRAG...</span>
+        </div>`;
       showTab('blast');
 
       try {
@@ -1110,18 +1043,16 @@
         const d = await r.json();
         simulationResult = d;
 
-        // Update Cypher inspector with the blast radius query
         if (d.execution_log && d.execution_log.length > 0) {
           const step = d.execution_log.find(s => s.step && s.step.includes('simulate_developer_unavailable')) || d.execution_log[0];
-          setCypher('Q2 · simulate_developer_unavailable', step.cypher, step.params);
+          setCypher('Q2 · blast_radius', step.cypher, step.params);
         }
 
         renderBlastRadius(d);
         renderBackupRecommendations(d);
         renderHandoffPackets(d);
-        await refreshGraph();
-        showToast('Agent pipeline completed ✓', 'success');
-
+        focusNodeByLabel(handle);
+        showToast('Autonomous mitigation plan ready ✓', 'success');
       } catch (e) {
         showToast('Simulation failed: ' + e.message, 'error');
         document.getElementById('blast-content').innerHTML = `<p class="text-xs text-rose-400">Error: ${e.message}</p>`;
@@ -1131,9 +1062,6 @@
       }
     }
 
-    // -----------------------------------------------------------------------
-    // Render Blast Radius
-    // -----------------------------------------------------------------------
     function renderBlastRadius(d) {
       const br = d.blast_result || {};
       const direct = d.directly_compromised || [];
@@ -1141,96 +1069,80 @@
       const features = d.blocked_features || [];
 
       const scoreColor = d.blast_radius_score > 5 ? 'border-rose-500 text-rose-400' :
-        d.blast_radius_score > 3 ? 'border-amber-500 text-amber-400' :
+        d.blast_radius_score > 2 ? 'border-amber-500 text-amber-400' :
           'border-brand-500 text-brand-400';
 
       document.getElementById('blast-content').innerHTML = `
-        <div class="space-y-3">
-          <div class="flex items-center gap-4">
-            <div class="score-ring ${scoreColor}">${d.blast_radius_score}</div>
+        <div class="space-y-3.5">
+          <div class="flex items-center gap-3.5 bg-surface-800/60 p-3 rounded-xl border border-slate-800">
+            <div class="score-ring ${scoreColor}">${d.blast_radius_score ?? 0}</div>
             <div>
               <div class="text-sm font-bold text-white">${br.developer || d.triggered_by}</div>
-              <div class="text-xs text-slate-500">Blast Radius Score</div>
+              <div class="text-xs text-slate-400">Organizational Blast Radius Score</div>
             </div>
           </div>
 
           <div>
-            <div class="text-xs font-semibold text-rose-400 uppercase tracking-wider mb-1.5">⚠ Directly Compromised</div>
+            <div class="text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-1.5">⚠ Directly Compromised Modules</div>
             <div class="flex flex-wrap gap-1.5">
-              ${direct.map(m => `<span class="badge badge-critical">${m}</span>`).join('') || '<span class="text-xs text-slate-600">None</span>'}
+              ${direct.map(m => `<span class="badge badge-critical">${m}</span>`).join('') || '<span class="text-xs text-slate-500">None</span>'}
             </div>
           </div>
 
           <div>
-            <div class="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1.5">⬇ Cascade Compromised (DEPENDS_ON*1..3)</div>
+            <div class="text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">⬇ Multi-Hop Cascade (DEPENDS_ON*1..3)</div>
             <div class="flex flex-wrap gap-1.5">
-              ${cascade.map(m => `<span class="badge badge-high">${m}</span>`).join('') || '<span class="text-xs text-slate-600">None</span>'}
+              ${cascade.map(m => `<span class="badge badge-high">${m}</span>`).join('') || '<span class="text-xs text-slate-500">None</span>'}
             </div>
           </div>
 
           <div>
-            <div class="text-xs font-semibold text-violet-400 uppercase tracking-wider mb-1.5">🚫 Blocked Client Features</div>
+            <div class="text-[11px] font-bold text-violet-400 uppercase tracking-wider mb-1.5">🚫 Blocked Revenue Features</div>
             <div class="space-y-1.5">
               ${features.map(f => `
-                <div class="bg-surface-800/60 rounded p-2 border border-slate-700/40">
-                  <div class="text-xs font-semibold text-white">${f.name || f}</div>
-                  <div class="flex items-center gap-3 mt-0.5">
-                    <span class="text-xs text-amber-400">${f.revenue || ''}</span>
-                    <span class="text-xs text-slate-500">${f.deadline !== undefined ? f.deadline + 'd left' : ''}</span>
+                <div class="bg-surface-800/70 rounded-lg p-2.5 border border-slate-700/50 flex items-center justify-between">
+                  <span class="text-xs font-semibold text-white">${f.name || f}</span>
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="text-amber-400 font-semibold">${f.revenue || ''}</span>
+                    <span class="text-slate-500">${f.deadline !== undefined ? f.deadline + 'd' : ''}</span>
                   </div>
                 </div>
-              `).join('') || '<span class="text-xs text-slate-600">No features blocked</span>'}
+              `).join('') || '<span class="text-xs text-slate-500">No client features blocked</span>'}
             </div>
           </div>
         </div>
       `;
     }
 
-    // -----------------------------------------------------------------------
-    // Render Backup Recommendations
-    // -----------------------------------------------------------------------
     function renderBackupRecommendations(d) {
       const recs = d.module_recommendations || {};
-
-      if (d.execution_log) {
-        const step = d.execution_log.find(s => s.step && s.step.startsWith('Q3'));
-        if (step) setCypher('Q3 · recommend_backup_engineer', step.cypher, step.params);
-      }
-
       let html = '';
       for (const [mod, candidates] of Object.entries(recs)) {
-        html += `<div class="mb-3">
-          <div class="text-xs font-semibold text-accent-cyan uppercase tracking-wider mb-1.5">📦 ${mod}</div>
+        html += `<div class="mb-3.5">
+          <div class="text-xs font-bold text-accent-cyan uppercase tracking-wider mb-1.5">📦 ${mod}</div>
           <div class="space-y-1.5">`;
         if (!candidates || candidates.length === 0) {
-          html += '<p class="text-xs text-slate-600 italic">No backup candidates found</p>';
+          html += '<p class="text-xs text-slate-500 italic">No backup candidates found</p>';
         } else {
           candidates.forEach((c, i) => {
-            const rankColors = ['text-amber-400', 'text-slate-300', 'text-slate-500'];
             const medals = ['🥇', '🥈', '🥉'];
             html += `
-              <div class="bg-surface-800/60 rounded p-2.5 border border-slate-700/40 hover:border-brand-600/40 transition-all">
+              <div class="bg-surface-800/70 rounded-lg p-2.5 border border-slate-700/50">
                 <div class="flex items-center justify-between">
-                  <span class="text-xs font-semibold ${rankColors[i]}">${medals[i]} ${c.recommended_dev}</span>
-                  <span class="text-xs text-brand-400 font-mono">score: ${c.proximity_score}</span>
+                  <span class="text-xs font-bold text-white">${medals[i] || '•'} ${c.recommended_dev} <span class="text-slate-400 font-normal">(${c.handle})</span></span>
+                  <span class="text-xs text-brand-400 font-mono font-semibold">score: ${c.proximity_score}</span>
                 </div>
-                <div class="text-xs text-slate-500 mt-0.5">${c.handle} · ${c.role}</div>
-                <div class="flex flex-wrap gap-1 mt-1">
-                  ${(c.reasons || []).map(r => `<span class="text-xs bg-brand-900/30 text-brand-400 px-1.5 py-0.5 rounded">${r}</span>`).join('')}
+                <div class="text-[11px] text-slate-400 mt-0.5">${c.role || ''}</div>
+                <div class="flex flex-wrap gap-1 mt-1.5">
+                  ${(c.reasons || []).map(r => `<span class="text-[10.5px] bg-brand-900/40 border border-brand-700/40 text-brand-300 px-1.5 py-0.5 rounded">${r}</span>`).join('')}
                 </div>
               </div>`;
           });
         }
         html += '</div></div>';
       }
-
-      document.getElementById('backup-content').innerHTML = html || '<p class="text-xs text-slate-600 italic">No recommendations generated.</p>';
+      document.getElementById('backup-content').innerHTML = html || '<p class="text-xs text-slate-500 italic">No backup recommendations generated.</p>';
     }
-
-    // -----------------------------------------------------------------------
-    // Render Handoff Packets (Multi-Module Switcher)
-    // -----------------------------------------------------------------------
-    let currentPacketModule = null;
 
     function formatMarkdown(md) {
       return (md || '')
@@ -1248,7 +1160,6 @@
       if (!simulationResult || !simulationResult.handoff_packets) return;
       const packets = simulationResult.handoff_packets;
       const modules = Object.keys(packets);
-      currentPacketModule = modName;
       const pkt = packets[modName];
       if (!pkt) return;
 
@@ -1256,7 +1167,7 @@
         <div class="flex flex-wrap gap-1.5 mb-3 pb-2 border-b border-slate-800">
           ${modules.map(m => `
             <button onclick="selectPacketModule('${m}')"
-              class="px-2.5 py-1 text-xs font-mono rounded ${m === modName ? 'bg-brand-600 text-white font-semibold' : 'bg-surface-800 text-slate-400 hover:text-white'}">
+              class="px-2.5 py-1 text-xs font-mono rounded-md transition-all ${m === modName ? 'bg-brand-600 text-white font-semibold' : 'bg-surface-800 text-slate-400 hover:text-white'}">
               📦 ${m}
             </button>
           `).join('')}
@@ -1285,21 +1196,17 @@
     function renderHandoffPackets(d) {
       const packets = d.handoff_packets || {};
       const modules = Object.keys(packets);
-
       if (modules.length === 0) {
-        document.getElementById('packet-content').innerHTML = '<p class="text-xs text-slate-600 italic">No handoff packets generated.</p>';
+        document.getElementById('packet-content').innerHTML = '<p class="text-xs text-slate-500 italic">No handoff packets needed.</p>';
         document.getElementById('mitigate-btn-container').classList.add('hidden');
         return;
       }
       selectPacketModule(modules[0]);
     }
 
-    // -----------------------------------------------------------------------
-    // Commit Mitigation to FalkorDB (Q4) — Updates Graph + Bottleneck Count Live!
-    // -----------------------------------------------------------------------
+    // Q4: Commit AgentMemory + SHADOW_ASSIGNED_TO
     async function commitMitigation() {
       if (!pendingMitigation) return;
-
       const btn = document.getElementById('mitigate-btn');
       btn.innerHTML = '<span class="loader" style="width:14px;height:14px;border-width:2px"></span> Writing to FalkorDB...';
       btn.disabled = true;
@@ -1311,8 +1218,7 @@
           body: JSON.stringify(pendingMitigation),
         });
         const d = await r.json();
-
-        setCypher('Q4 · commit_agent_handoff_memory', d.cypher || '', d.params || {});
+        setCypher('Q4 · commit_agent_memory', d.cypher || '', d.params || {});
 
         if (d.result && d.result.length > 0) {
           const res = d.result[0];
@@ -1327,9 +1233,7 @@
       }
     }
 
-    // -----------------------------------------------------------------------
-    // Live GitHub Ingestion
-    // -----------------------------------------------------------------------
+    // Live GitHub PR Ingestion
     async function ingestGitHubRepo() {
       const val = (document.getElementById('gh-repo-input').value || '').trim();
       if (!val.includes('/')) {
@@ -1353,10 +1257,9 @@
         if (d.error) {
           showToast(d.error, 'error');
         } else {
-          showToast(`✓ Ingested ${d.prs} PRs · ${d.developers} devs · ${d.modules || 0} sub-modules from ${owner}/${repo}!`, 'success');
-          // Refresh everything so new repo is immediately visible
+          showToast(`✓ Ingested ${d.prs} PRs · ${d.developers} devs · ${d.modules || 0} modules from ${owner}/${repo}`, 'success');
           await Promise.all([refreshGraph(), loadDevelopers(), checkHealth()]);
-          setTimeout(runBottleneckScan, 400);
+          setTimeout(runBottleneckScan, 350);
         }
       } catch (e) {
         showToast('GitHub ingest failed: ' + e.message, 'error');
@@ -1366,9 +1269,7 @@
       }
     }
 
-    // -----------------------------------------------------------------------
     // Executive Audit
-    // -----------------------------------------------------------------------
     async function runExecutiveAudit() {
       const btn = document.getElementById('audit-btn');
       btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:1.5px"></span> Auditing...';
@@ -1377,7 +1278,7 @@
       try {
         const r = await fetch(`${API}/api/audit`);
         const d = await r.json();
-        setCypher('Q1 · executive_company_audit', d.cypher || '');
+        setCypher('Q1 · executive_audit', d.cypher || '');
         document.getElementById('packet-content').innerHTML = formatMarkdown(d.executive_summary || '');
         document.getElementById('mitigate-btn-container').classList.add('hidden');
         showTab('packet');
@@ -1390,9 +1291,7 @@
       }
     }
 
-    // -----------------------------------------------------------------------
-    // Seed Graph
-    // -----------------------------------------------------------------------
+    // Reseed Synthetic Graph
     async function seedGraph() {
       const btn = document.getElementById('seed-btn');
       btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:1.5px"></span>';
@@ -1411,13 +1310,10 @@
       }
     }
 
-    // -----------------------------------------------------------------------
-    // Init
-    // -----------------------------------------------------------------------
+    // Initialize Dashboard
     async function init() {
       await Promise.all([checkHealth(), refreshGraph(), loadDevelopers()]);
-      // Auto-run bottleneck scan on load
-      setTimeout(runBottleneckScan, 800);
+      setTimeout(runBottleneckScan, 600);
     }
 
     window.addEventListener('load', init);
