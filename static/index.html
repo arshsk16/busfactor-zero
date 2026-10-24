@@ -50,7 +50,7 @@
       font-family: 'Inter', sans-serif;
     }
 
-    /* Desktop Full-Screen App Lock (Prevents all double-scrollbars & flex collapse bugs) */
+    /* Desktop Full-Screen App Lock */
     @media (min-width: 1024px) {
 
       html,
@@ -73,9 +73,10 @@
         grid-template-columns: repeat(12, minmax(0, 1fr));
         gap: 1rem;
         padding: 1rem 1.25rem;
-        max-width: 1800px;
+        max-width: 1850px;
         width: 100%;
         margin: 0 auto;
+        align-items: stretch;
       }
 
       .col-scroll {
@@ -95,7 +96,7 @@
       }
     }
 
-    /* Mobile / Tablet fallback (clean vertical stacking) */
+    /* Mobile / Tablet fallback */
     @media (max-width: 1023px) {
       #main-workspace {
         display: flex;
@@ -104,8 +105,8 @@
         padding: 1rem;
       }
 
-      #graph-card {
-        height: 520px !important;
+      #graph-stage {
+        height: 560px !important;
       }
     }
 
@@ -131,7 +132,7 @@
     /* Glass Cards */
     .glass {
       background: rgba(12, 19, 29, 0.88);
-      border: 1px solid rgba(45, 155, 110, 0.2);
+      border: 1px solid rgba(45, 155, 110, 0.22);
       backdrop-filter: blur(12px);
     }
 
@@ -142,7 +143,7 @@
     /* Graph Card & Strictly Sized Canvas Stage */
     #graph-card {
       flex: 1 1 0%;
-      min-height: 440px;
+      min-height: 520px;
       display: flex;
       flex-direction: column;
       border-radius: 0.75rem;
@@ -153,24 +154,20 @@
     #graph-stage {
       position: relative;
       flex: 1 1 0%;
-      min-height: 0;
       width: 100%;
-      background: radial-gradient(circle at 50% 50%, #0f1c2e 0%, #070b11 100%);
+      height: calc(100vh - 210px);
+      min-height: 480px;
+      background: radial-gradient(circle at 50% 50%, #102036 0%, #070b11 100%);
+      overflow: hidden;
     }
 
     #graph-canvas {
       position: absolute;
-      inset: 0;
-      width: 100% !important;
-      height: 100% !important;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       outline: none;
-    }
-
-    #graph-canvas .vis-network,
-    #graph-canvas .vis-network canvas {
-      width: 100% !important;
-      height: 100% !important;
-      display: block !important;
     }
 
     /* Cypher Inspector */
@@ -385,13 +382,13 @@
     }
 
     .graph-toolbar button {
-      width: 32px;
-      height: 32px;
+      width: 34px;
+      height: 34px;
       border-radius: 8px;
       background: rgba(12, 19, 29, 0.92);
       border: 1px solid rgba(45, 155, 110, 0.35);
       color: #4cb488;
-      font-size: 13px;
+      font-size: 14px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -417,7 +414,7 @@
 
     <!-- ===== TOP HEADER ===== -->
     <header class="glass border-b border-brand-800/40 shrink-0 z-30">
-      <div class="max-w-[1800px] mx-auto px-5 py-2.5 flex items-center justify-between gap-4 flex-wrap">
+      <div class="max-w-[1850px] mx-auto px-5 py-2.5 flex items-center justify-between gap-4 flex-wrap">
         <div class="flex items-center gap-3">
           <div
             class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-accent-cyan flex items-center justify-center text-white font-extrabold text-sm shadow-md">
@@ -534,12 +531,12 @@
         <div id="graph-card" class="glass">
           <!-- Dedicated Non-Overlapping Header Bar -->
           <div
-            class="px-3.5 py-2 border-b border-slate-800/80 flex items-center justify-between gap-2 flex-wrap shrink-0 bg-surface-900/80 z-20">
+            class="px-3.5 py-2 border-b border-slate-800/80 flex items-center justify-between gap-2 flex-wrap shrink-0 bg-surface-900/90 z-20">
             <div class="flex items-center gap-2 min-w-0">
               <span class="text-xs font-bold text-brand-400 uppercase tracking-wider whitespace-nowrap">Live Graph ·
                 CompanyBrain</span>
               <span id="node-count"
-                class="text-[11px] text-slate-400 font-mono bg-surface-800 px-2 py-0.5 rounded border border-slate-800 whitespace-nowrap"></span>
+                class="text-[11px] text-slate-300 font-mono bg-surface-800 px-2 py-0.5 rounded border border-slate-700 whitespace-nowrap"></span>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
               <button onclick="refreshGraph()"
@@ -786,46 +783,56 @@
       if (!network) return;
       const stage = document.getElementById('graph-stage');
       if (!stage) return;
-      const rect = stage.getBoundingClientRect();
-      const w = Math.max(Math.floor(rect.width), 320);
-      const h = Math.max(Math.floor(rect.height), 420);
+      const w = Math.max(stage.clientWidth, 450);
+      const h = Math.max(stage.clientHeight, 500);
       network.setSize(w + 'px', h + 'px');
       network.redraw();
       network.fit({
+        padding: 28,
         animation: animate ? { duration: 350, easingFunction: 'easeInOutQuad' } : false,
       });
     }
 
     function initGraph(data) {
       const stage = document.getElementById('graph-stage');
-      const rect = stage ? stage.getBoundingClientRect() : { width: 700, height: 540 };
-      const stageW = Math.max(Math.floor(rect.width), 320);
-      const stageH = Math.max(Math.floor(rect.height), 420);
+      const stageW = Math.max(stage ? stage.clientWidth : 680, 480);
+      const stageH = Math.max(stage ? stage.clientHeight : 580, 500);
 
-      const nodes = new vis.DataSet((data.nodes || []).map(n => ({
-        id: n.id,
-        label: n.label,
-        title: buildTooltip(n),
-        color: NODE_COLORS[n.group] || { background: '#1e293b', border: '#64748b' },
-        font: { color: '#f8fafc', size: 13, face: 'Inter', strokeWidth: 3, strokeColor: '#070b11' },
-        borderWidth: 2.5,
-        shadow: { enabled: true, color: 'rgba(0,0,0,0.65)', size: 10 },
-        shape: n.group === 'Developer' ? 'dot' :
-          n.group === 'Module' ? 'diamond' :
-            n.group === 'Feature' ? 'star' :
-              n.group === 'AgentMemory' ? 'triangleDown' : 'dot',
-        size: n.group === 'Module' ? 24 :
-          n.group === 'Feature' ? 22 :
-            n.group === 'Developer' ? 19 :
-              n.group === 'AgentMemory' ? 22 : 13,
-      })));
+      const rawNodes = data.nodes || [];
+      const total = Math.max(rawNodes.length, 1);
+
+      // Seed nodes in a wide elliptical layout across the full width & height of the stage
+      const nodes = new vis.DataSet(rawNodes.map((n, idx) => {
+        const angle = (2 * Math.PI * idx) / total;
+        const radiusX = stageW * 0.42;
+        const radiusY = stageH * 0.42;
+        return {
+          id: n.id,
+          label: n.label,
+          title: buildTooltip(n),
+          x: Math.cos(angle) * radiusX,
+          y: Math.sin(angle) * radiusY,
+          color: NODE_COLORS[n.group] || { background: '#1e293b', border: '#64748b' },
+          font: { color: '#f8fafc', size: 13, face: 'Inter', strokeWidth: 3, strokeColor: '#070b11' },
+          borderWidth: 2.5,
+          shadow: { enabled: true, color: 'rgba(0,0,0,0.65)', size: 10 },
+          shape: n.group === 'Developer' ? 'dot' :
+            n.group === 'Module' ? 'diamond' :
+              n.group === 'Feature' ? 'star' :
+                n.group === 'AgentMemory' ? 'triangleDown' : 'dot',
+          size: n.group === 'Module' ? 24 :
+            n.group === 'Feature' ? 22 :
+              n.group === 'Developer' ? 19 :
+                n.group === 'AgentMemory' ? 22 : 13,
+        };
+      }));
 
       const edges = new vis.DataSet((data.edges || []).map((e, i) => ({
         id: i,
         from: e.from,
         to: e.to,
         label: e.label,
-        color: { color: EDGE_COLORS[e.label] || '#475569', opacity: 0.82 },
+        color: { color: EDGE_COLORS[e.label] || '#475569', opacity: 0.85 },
         font: { color: EDGE_COLORS[e.label] || '#94a3b8', size: 9.5, face: 'JetBrains Mono', strokeWidth: 2, strokeColor: '#070b11' },
         arrows: { to: { enabled: true, scaleFactor: 0.6 } },
         width: e.label === 'DEPENDS_ON' || e.label === 'SHADOW_ASSIGNED_TO' ? 2.4 : 1.5,
@@ -837,22 +844,20 @@
       const options = {
         width: stageW + 'px',
         height: stageH + 'px',
-        autoResize: false,
+        autoResize: true,
         physics: {
           enabled: true,
-          solver: 'forceAtlas2Based',
-          forceAtlas2Based: {
-            gravitationalConstant: -95,
-            centralGravity: 0.012,
-            springLength: 135,
-            springConstant: 0.06,
-            damping: 0.45,
-            avoidOverlap: 0.85,
+          solver: 'repulsion',
+          repulsion: {
+            nodeDistance: 175,
+            centralGravity: 0.05,
+            springLength: 165,
+            springConstant: 0.04,
+            damping: 0.15,
           },
-          stabilization: { enabled: true, iterations: 220, updateInterval: 25, fit: true },
+          stabilization: { enabled: true, iterations: 180, updateInterval: 25, fit: true },
         },
         interaction: { hover: true, zoomView: true, dragNodes: true, tooltipDelay: 120 },
-        layout: { improvedLayout: true },
       };
 
       if (network) network.destroy();
@@ -868,7 +873,7 @@
           const loader = document.getElementById('graph-loader');
           loader.style.opacity = '0';
           setTimeout(() => { loader.style.display = 'none'; }, 250);
-        }, 250);
+        }, 200);
       });
 
       network.on('selectNode', params => {
@@ -877,24 +882,16 @@
       network.on('deselectNode', () => { selectedNodeId = null; });
 
       // Update counters
-      const allNodes = data.nodes || [];
-      document.getElementById('stat-devs').textContent = allNodes.filter(n => n.group === 'Developer').length;
-      document.getElementById('stat-modules').textContent = allNodes.filter(n => n.group === 'Module').length;
-      document.getElementById('stat-prs').textContent = allNodes.filter(n => n.group === 'PullRequest').length;
-      document.getElementById('node-count').textContent = `${allNodes.length} nodes · ${(data.edges || []).length} edges`;
+      document.getElementById('stat-devs').textContent = rawNodes.filter(n => n.group === 'Developer').length;
+      document.getElementById('stat-modules').textContent = rawNodes.filter(n => n.group === 'Module').length;
+      document.getElementById('stat-prs').textContent = rawNodes.filter(n => n.group === 'PullRequest').length;
+      document.getElementById('node-count').textContent = `${rawNodes.length} nodes · ${(data.edges || []).length} edges`;
     }
 
-    // ResizeObserver locks Vis.js canvas to exact pixel width & height of #graph-stage
+    // ResizeObserver keeps Vis.js locked to #graph-stage dimensions
     const stageObserver = new ResizeObserver(() => {
       if (network) {
-        const stage = document.getElementById('graph-stage');
-        if (!stage) return;
-        const rect = stage.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          network.setSize(Math.floor(rect.width) + 'px', Math.floor(rect.height) + 'px');
-          network.redraw();
-          network.fit({ animation: false });
-        }
+        syncCanvasSizeAndFit(false);
       }
     });
     window.addEventListener('DOMContentLoaded', () => {
